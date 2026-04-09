@@ -1,0 +1,65 @@
+# VSCode Extension
+out/
+node_modules/
+.vscode-test/
+*.vsix
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+
+# C/C++
+*.o
+*.obj
+*.exe
+*.dll
+*.a
+*.lib
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# DOSBox specific
+autom4te.cache/
+config.status
+config.log
+.deps/
+*.Po
+
+# Ignore generated Makefiles but keep originals
+dosbox-code-0-r4494-dosbox-trunk/Makefile
+dosbox-code-0-r4494-dosbox-trunk/**/Makefile
+!dosbox-code-0-r4494-dosbox-trunk/docs/Makefile
+!dosbox-code-0-r4494-dosbox-trunk/docs/Makefile.am
+!dosbox-code-0-r4494-dosbox-trunk/docs/Makefile.in
+!dosbox-code-0-r4494-dosbox-trunk/include/Makefile
+!dosbox-code-0-r4494-dosbox-trunk/include/Makefile.am
+!dosbox-code-0-r4494-dosbox-trunk/include/Makefile.in
+!dosbox-code-0-r4494-dosbox-trunk/src/Makefile
+!dosbox-code-0-r4494-dosbox-trunk/src/Makefile.am
+!dosbox-code-0-r4494-dosbox-trunk/src/Makefile.in
+!dosbox-code-0-r4494-dosbox-trunk/src/**/Makefile
+!dosbox-code-0-r4494-dosbox-trunk/src/**/Makefile.am
+!dosbox-code-0-r4494-dosbox-trunk/src/**/Makefile.in
+
+# Database
+*.db
+*.sqlite
+*.sqlite3

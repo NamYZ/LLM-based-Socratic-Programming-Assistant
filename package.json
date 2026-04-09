@@ -1,0 +1,101 @@
+{
+  "name": "ai-coding-tool",
+  "displayName": "AI Coding Tool",
+  "description": "AI-powered coding assistant with guided and answer modes",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-coding-tool",
+          "title": "AI Coding Tool",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ai-coding-tool": [
+        {
+          "icon": "media/icon.svg",
+          "type": "webview",
+          "id": "aiCodingTool.chatView",
+          "name": "AI Chat Assistant"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aiCodingTool.newChat",
+        "title": "New Chat"
+      },
+      {
+        "command": "aiCodingTool.openSettings",
+        "title": "AI Coding Tool Settings"
+      },
+      {
+        "command": "aiCodingTool.addToContext",
+        "title": "添加到 AI 上下文"
+      },
+      {
+        "command": "aiCodingTool.togglePanel",
+        "title": "切换 AI 面板"
+      },
+      {
+        "command": "aiCodingTool.quickInput",
+        "title": "快速输入发送给 AI"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "aiCodingTool.addToContext",
+          "when": "editorHasSelection",
+          "group": "aiCodingTool@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "aiCodingTool.togglePanel",
+        "key": "control+i",
+        "mac": "control+i",
+        "when": "true"
+      },
+      {
+        "command": "aiCodingTool.quickInput",
+        "key": "command+y",
+        "mac": "command+y",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "dependencies": {
+    "sql.js": "^1.13.0"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^7.x",
+    "@typescript-eslint/parser": "^7.x",
+    "eslint": "^8.x",
+    "typescript": "^5.x",
+    "typescript-eslint": "^8.57.2"
+  }
+}

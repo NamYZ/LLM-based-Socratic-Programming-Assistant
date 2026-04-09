@@ -1,0 +1,44 @@
+"""
+AI Coding Tool Backend API
+使用 FastAPI 构建的后端服务，提供模型配置管理、对话会话管理和聊天接口，支持苏格拉底式引导教学模式。
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from database import init_db, DB_PATH
+from routers.config_router import router as config_router
+from routers.session_router import router as session_router
+from routers.chat_router import router as chat_router
+
+# 创建 FastAPI 应用
+app = FastAPI()
+
+# CORS配置（允许跨域访问）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 注册路由
+app.include_router(config_router, tags=["配置管理"])
+app.include_router(session_router, tags=["会话管理"])
+app.include_router(chat_router, tags=["聊天"])
+
+
+@app.get("/")
+async def index():
+    """访问首页时返回一个简单的 JSON，表明后端服务正在运行"""
+    return {"message": "AI Coding Tool Backend API", "status": "running"}
+
+
+if __name__ == '__main__':
+    # 初始化数据库
+    init_db()
+    print(f"✅ 数据库路径: {DB_PATH}")
+
+    # 启动后端服务 端口：5500
+    uvicorn.run(app, host="0.0.0.0", port=5500)
+    print("🚀 服务启动: http://localhost:5500")
