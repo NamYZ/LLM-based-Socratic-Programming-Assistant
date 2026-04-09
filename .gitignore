@@ -63,3 +63,9 @@ dosbox-code-0-r4494-dosbox-trunk/**/Makefile
 *.db
 *.sqlite
 *.sqlite3
+
+# Project specific
+CLAUDE.md
+build_dosbox.sh
+find_modifications.sh
+.vscode-test.mjs
