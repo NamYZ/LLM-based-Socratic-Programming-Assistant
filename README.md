@@ -92,17 +92,7 @@ source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-#### 5. 配置环境变量
-
-在 `backend` 目录下创建 `.env` 文件，配置你的 API 密钥：
-
-```bash
-# OpenAI API 配置
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_API_BASE=https://api.openai.com/v1  # 可选，使用自定义 API 端点
-```
-
-#### 6. 启动项目
+#### 5. 启动项目
 
 **终端 1 - 编译前端（监听模式）：**
 
