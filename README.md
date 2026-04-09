@@ -1,4 +1,4 @@
-# AI Coding Tool
+<div align="center"> # AI Coding Tool </div>
 
 <div align="center">
 
@@ -507,35 +507,9 @@ Agent 采用 **苏格拉底式教学法**，遵循以下原则：
 - [ ] 团队协作功能
 - [ ] 插件市场发布
 
-## 🤝 贡献指南
-
-欢迎贡献代码、报告问题或提出建议！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
 ## 📄 开源协议
 
 本项目采用 MIT 协议 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 📧 联系方式
-
-如有问题或建议，欢迎通过以下方式联系：
-
-- 提交 Issue: [GitHub Issues](https://github.com/your-username/ai-coding-tool/issues)
-- 邮箱: your-email@example.com
-
-## 🙏 致谢
-
-感谢以下开源项目：
-
-- [VS Code Extension API](https://code.visualstudio.com/api)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [LangChain](https://www.langchain.com/)
-- [OpenAI](https://openai.com/)
 
 ---
 
