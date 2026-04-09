@@ -1,5 +1,3 @@
-<div align="center"> # AI Coding Tool </div>
-
 <div align="center">
 
 **智能编程助手 VS Code 扩展**
