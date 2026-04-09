@@ -225,3 +225,5 @@ sudo apt-get install build-essential autoconf automake \
 **版本**: v1.0  
 **状态**: Ready for Testing 🚀  
 **日期**: 2026-04-09
+# -
+特点：苏格拉底式引导
