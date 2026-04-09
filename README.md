@@ -1,229 +1,548 @@
-# AI Coding Tool - 8086 汇编教学助手
+# AI Coding Tool
 
-基于 VS Code 插件的 AI Agent 系统，采用苏格拉底式引导教学法，帮助学生学习 8086 16位汇编编程。
+<div align="center">
 
-## 🎯 核心特性
+**智能编程助手 VS Code 扩展**
 
-- **苏格拉底式教学**: 通过提问引导，不直接给出答案
-- **双模式支持**: Guide（引导编写）和 Debug（引导调试）
-- **自动执行分析**: 集成 DOSBox，自动执行代码并分析 trace
-- **动态提示强度**: 根据学生理解程度自动调整（0-3级）
-- **完整 trace 记录**: 寄存器、标志位、内存、跳转信息
+一个集成了 AI 能力的 VS Code 扩展，提供智能代码补全、问题解答和编程引导功能
 
-## 🚀 快速开始
+[English](./README_EN.md) | 简体中文
 
-### 1. 编译 DOSBox
+</div>
+
+---
+
+## 📖 项目简介
+
+AI Coding Tool 是一个基于大语言模型的智能编程助手 VS Code 扩展。它通过集成先进的 AI 技术，为开发者提供实时的代码理解、问题解答和编程指导，显著提升开发效率和代码质量。
+
+本项目采用前后端分离架构，前端为 VS Code 扩展，后端基于 FastAPI 和 LangChain 构建，支持多种交互模式，并集成了 DOSBox 环境用于特定场景的代码执行和测试。
+
+## ✨ 核心特性
+
+### 🎯 多模式交互
+- **答案式模式**：直接回答编程问题，提供精准的代码示例和解决方案
+- **引导式模式**：通过问答引导，帮助开发者理解问题本质，培养编程思维
+- **Agent 模式**：（开发中）自主规划和执行复杂编程任务
+
+### 💡 智能代码理解
+- **上下文感知**：自动识别当前编辑器中的代码上下文
+- **代码选择添加**：右键选中代码片段，快速添加到 AI 对话上下文
+- **多文件支持**：支持跨文件的代码理解和分析
+
+### ⚡ 高效交互体验
+- **快捷键操作**：
+  - `Ctrl+I` (macOS: `Ctrl+I`) - 快速切换 AI 面板
+  - `Cmd+Y` (macOS: `Cmd+Y`) - 编辑器内快速输入并发送问题
+- **侧边栏集成**：AI 助手面板无缝集成到 VS Code 侧边栏
+- **实时响应**：流式输出，即时获得 AI 反馈
+
+### 🔧 开发者友好
+- **本地部署**：支持本地运行，保护代码隐私
+- **可扩展架构**：模块化设计，易于扩展和定制
+- **DOSBox 集成**：支持特定环境下的代码执行和测试
+
+## 🚀 快速开始（macOS）
+
+### 前置要求
+
+- **Node.js** (推荐 v18 或更高版本)
+- **Python** 3.8+
+- **Homebrew** (macOS 包管理器)
+- **VS Code** 1.85.0 或更高版本
+
+### 安装步骤
+
+#### 1. 安装系统依赖
+
+使用 Homebrew 安装必要的系统库：
 
 ```bash
-./build_dosbox.sh
+# 安装 Node.js（如果尚未安装）
+brew install node
+
+# 安装 SDL 相关库（用于 DOSBox）
+brew install sdl sdl2_net sdl2_sound automake autoconf gcc
 ```
 
-### 2. 测试 Trace 功能
+#### 2. 克隆项目
 
 ```bash
-./test_dosbox.sh
+git clone https://github.com/your-username/ai-coding-tool.git
+cd ai-coding-tool
 ```
 
-### 3. 启动后端
+#### 3. 安装前端依赖
+
+```bash
+npm install
+```
+
+#### 4. 安装后端依赖
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+或使用虚拟环境（推荐）：
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r backend/requirements.txt
+```
+
+#### 5. 配置环境变量
+
+在 `backend` 目录下创建 `.env` 文件，配置你的 API 密钥：
+
+```bash
+# OpenAI API 配置
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_BASE=https://api.openai.com/v1  # 可选，使用自定义 API 端点
+```
+
+#### 6. 启动项目
+
+**终端 1 - 编译前端（监听模式）：**
+
+```bash
+npm run watch
+```
+
+**终端 2 - 启动后端服务：**
+
+```bash
+./start-backend.sh
+```
+
+或手动启动：
 
 ```bash
 cd backend
-python app_fastapi.py
+uvicorn app_fastapi:app --reload --port 8000
 ```
 
-### 4. 使用插件
+#### 7. 在 VS Code 中调试
 
-1. 在 VS Code 中按 F5 启动调试
-2. 打开 `.asm` 文件
-3. 切换到 guided 模式
-4. 开始对话
+1. 在 VS Code 中打开项目文件夹
+2. 按 `F5` 启动扩展开发主机
+3. 在新打开的 VS Code 窗口中，点击侧边栏的 AI Coding Tool 图标
+4. 开始使用！
 
-## 📚 文档
+### 验证安装
 
-- **QUICKSTART_GUIDE.md** - 快速开始指南
-- **INTEGRATION_COMPLETE.md** - 完整集成总结
-- **DOSBOX_INTEGRATION.md** - DOSBox 集成详细指南
-- **backend/AGENT_README.md** - Agent 系统架构
-- **backend/QUICKSTART.md** - Agent 快速启动
+在新打开的 VS Code 窗口中：
+
+1. 打开任意代码文件
+2. 按 `Ctrl+I` 打开 AI 面板
+3. 输入问题，例如："如何在 Python 中读取 JSON 文件？"
+4. 查看 AI 的回复
 
 ## 🏗️ 系统架构
 
 ```
-用户 (VS Code)
-    ↓
-MessageHandler (根据模式选择执行链)
-    ↓
-Backend API (FastAPI)
-    ↓
-Agent Core (LangChain ReAct)
-    ↓
-┌─────────────────────────────────┐
-│  5 个工具:                       │
-│  - Student Tree (学习进度)       │
-│  - Code Analyzer (静态分析)      │
-│  - Code Executor (执行+trace)    │
-│  - Step Explainer (trace解析)    │
-│  - Hint Generator (生成问题)     │
-└─────────────────────────────────┘
-    ↓
-DOSBox (修改版，支持 trace)
-    ↓
-Trace Logger (记录执行状态)
-    ↓
-JSON 输出 → 数据库 → Agent 分析
-    ↓
-引导性问题 → 用户
+┌─────────────────────────────────────────────────────────┐
+│                     VS Code Editor                       │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │          AI Coding Tool Extension (前端)          │  │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────┐  │  │
+│  │  │  Webview UI │  │ Code Context │  │Commands │  │  │
+│  │  │   (Chat)    │  │   Provider   │  │ Handler │  │  │
+│  │  └──────┬──────┘  └──────┬───────┘  └────┬────┘  │  │
+│  │         │                │                │        │  │
+│  └─────────┼────────────────┼────────────────┼────────┘  │
+│            │                │                │           │
+└────────────┼────────────────┼────────────────┼───────────┘
+             │                │                │
+             │ HTTP/WebSocket │                │
+             ▼                ▼                ▼
+┌─────────────────────────────────────────────────────────┐
+│              FastAPI Backend (后端服务)                  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                  API Layer                        │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌────────────────┐  │  │
+│  │  │ Chat API │  │ Mode API │  │ Context API    │  │  │
+│  │  └────┬─────┘  └────┬─────┘  └────────┬───────┘  │  │
+│  └───────┼─────────────┼─────────────────┼──────────┘  │
+│          │             │                  │             │
+│  ┌───────┼─────────────┼─────────────────┼──────────┐  │
+│  │       ▼             ▼                  ▼          │  │
+│  │  ┌──────────────────────────────────────────┐    │  │
+│  │  │         LangChain Core Engine            │    │  │
+│  │  │  ┌────────────┐      ┌───────────────┐  │    │  │
+│  │  │  │Answer Mode │      │ Guided Mode   │  │    │  │
+│  │  │  │  Prompts   │      │   Prompts     │  │    │  │
+│  │  │  └────────────┘      └───────────────┘  │    │  │
+│  │  │  ┌────────────────────────────────────┐ │    │  │
+│  │  │  │      Agent Core (开发中)           │ │    │  │
+│  │  │  └────────────────────────────────────┘ │    │  │
+│  │  └──────────────────┬───────────────────────┘    │  │
+│  └─────────────────────┼──────────────────────────┘  │
+│                        │                             │
+│  ┌─────────────────────┼──────────────────────────┐  │
+│  │                     ▼                          │  │
+│  │  ┌──────────────────────────────────────────┐  │  │
+│  │  │         LLM Provider (OpenAI)            │  │  │
+│  │  └──────────────────────────────────────────┘  │  │
+│  └─────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────────────────────┐
+│              DOSBox Integration (可选)                   │
+│         用于特定场景的代码执行和测试                        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## 📊 技术栈
+### 架构说明
 
-- **前端**: VS Code Extension (TypeScript)
-- **后端**: FastAPI (Python)
-- **AI**: LangChain + OpenAI-compatible API
-- **数据库**: SQLite
-- **执行引擎**: DOSBox (修改版)
-- **编译器**: NASM
+- **前端层**：基于 VS Code Extension API，提供用户界面和交互逻辑
+- **后端层**：FastAPI 提供 RESTful API，LangChain 处理 AI 逻辑
+- **AI 层**：集成大语言模型（OpenAI GPT），提供智能能力
+- **执行层**：DOSBox 环境用于特定场景的代码执行
 
-## 🔧 系统要求
+## 🛠️ 技术栈
 
-### macOS
-```bash
-brew install autoconf automake sdl sdl_net sdl_sound nasm
-```
+### 前端技术
 
-### Linux (Ubuntu/Debian)
-```bash
-sudo apt-get install build-essential autoconf automake \
-    libsdl1.2-dev libsdl-net1.2-dev libsdl-sound1.2-dev nasm
-```
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| TypeScript | ^5.x | 类型安全的开发语言 |
+| VS Code Extension API | ^1.85.0 | 扩展开发框架 |
+| Webview API | - | 自定义 UI 界面 |
+| sql.js | ^1.13.0 | 本地数据存储 |
+
+### 后端技术
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Python | 3.8+ | 后端开发语言 |
+| FastAPI | >=0.104.0 | 高性能 Web 框架 |
+| Uvicorn | >=0.24.0 | ASGI 服务器 |
+| LangChain | >=0.1.0 | LLM 应用开发框架 |
+| LangChain-OpenAI | >=0.0.5 | OpenAI 集成 |
+| Pydantic | >=2.5.0 | 数据验证 |
+
+### 开发工具
+
+- **ESLint**: 代码质量检查
+- **TypeScript Compiler**: TypeScript 编译
+- **Git**: 版本控制
 
 ## 📁 项目结构
 
 ```
-.
-├── backend/                    # 后端服务
-│   ├── agent_core.py          # Agent 核心
-│   ├── agent_tools/           # 5个工具模块
-│   ├── agent_prompts/         # 4层提示词
-│   ├── routers/               # API 路由
-│   └── database.py            # 数据库
-├── src/                       # VS Code 插件
-│   └── providers/
-│       └── MessageHandler.ts  # 消息处理（已集成 Agent）
-├── dosbox-code-0-r4494-dosbox-trunk/  # DOSBox 源码
-│   ├── include/
-│   │   └── trace_logger.h     # Trace Logger 头文件
-│   └── src/
-│       ├── cpu/
-│       │   ├── core_normal.cpp    # CPU 核心（已添加 hook）
-│       │   └── trace_logger.cpp   # Trace Logger 实现
-│       └── shell/
-│           └── shell_cmds.cpp     # Shell 命令（已添加 TRACE）
-├── build_dosbox.sh            # DOSBox 编译脚本
-├── test_dosbox.sh             # Trace 功能测试脚本
-└── *.md                       # 文档
+ai-coding-tool/
+├── backend/                          # 后端服务
+│   ├── app_fastapi.py               # FastAPI 应用主入口
+│   ├── models.py                    # 数据模型定义
+│   ├── database.py                  # 数据库操作（SQLite）
+│   ├── question_mode_prompts.py     # 答案式模式提示词
+│   ├── guided_mode_prompts.py       # 引导式模式提示词
+│   ├── agent_core.py                # Agent 核心逻辑（ReAct 架构）
+│   ├── requirements.txt             # Python 依赖
+│   │
+│   ├── routers/                     # API 路由模块
+│   │   ├── __init__.py
+│   │   ├── chat_router.py           # 聊天相关 API
+│   │   ├── config_router.py         # 配置管理 API
+│   │   └── session_router.py        # 会话管理 API
+│   │
+│   ├── agent_tools/                 # Agent 工具集（5个核心工具）
+│   │   ├── __init__.py
+│   │   ├── student_tree.py          # 学生进度跟踪工具
+│   │   ├── code_analyzer.py         # 代码静态分析工具
+│   │   ├── code_executor.py         # DOSBox 代码执行工具
+│   │   ├── step_explainer.py        # 执行步骤解释工具
+│   │   └── hint_generator.py        # 智能提示生成工具
+│   │
+│   └── agent_prompts/               # Agent 提示词模块
+│       ├── __init__.py
+│       ├── system_prompt.py         # 系统提示词（苏格拉底式教学）
+│       ├── mode_prompt.py           # 模式提示词（guide/debug）
+│       ├── task_prompt.py           # 任务提示词构建
+│       └── tool_prompt.py           # 工具使用说明
+│
+├── src/                             # 前端源码（TypeScript）
+│   ├── extension.ts                 # 扩展入口文件
+│   ├── types.ts                     # TypeScript 类型定义
+│   ├── fileReferenceParser.ts       # 文件引用解析器
+│   │
+│   ├── providers/                   # 功能提供者模块
+│   │   ├── ChatViewProvider.ts      # 聊天视图提供者（主控制器）
+│   │   ├── MessageHandler.ts        # 消息处理器
+│   │   ├── ConfigDatabaseManager.ts # 配置数据库管理
+│   │   ├── SessionExporter.ts       # 会话导出功能
+│   │   ├── FileReferenceHandler.ts  # 文件引用处理
+│   │   └── WebviewContentProvider.ts # Webview 内容提供者
+│   │
+│   ├── webview/                     # Webview UI 资源
+│   │   ├── index.html               # 聊天界面 HTML
+│   │   ├── webview.css              # 样式文件
+│   │   └── webview.js               # 前端交互逻辑
+│   │
+│   └── test/                        # 单元测试
+│       └── extension.test.ts
+│
+├── out/                             # TypeScript 编译输出目录
+├── media/                           # 媒体资源
+│   └── icon.svg                     # 扩展图标
+│
+├── .vscode/                         # VS Code 配置
+│   ├── launch.json                  # 调试配置
+│   ├── tasks.json                   # 任务配置
+│   ├── settings.json                # 工作区设置
+│   └── extensions.json              # 推荐扩展
+│
+├── dosbox-code-0-r4494-dosbox-trunk/ # 修改版 DOSBox 源码
+│   └── src/                         # DOSBox 源代码（支持 trace 输出）
+│
+├── build_dosbox.sh                  # DOSBox 编译脚本
+├── test_dosbox.sh                   # DOSBox 测试脚本
+├── find_modifications.sh            # 查找代码修改脚本
+├── start-backend.sh                 # 后端启动脚本（macOS/Linux）
+├── start-backend.bat                # 后端启动脚本（Windows）
+│
+├── package.json                     # Node.js 项目配置
+├── package-lock.json                # 依赖锁定文件
+├── tsconfig.json                    # TypeScript 编译配置
+├── eslint.config.mjs                # ESLint 代码检查配置
+├── .vscode-test.mjs                 # VS Code 测试配置
+├── .vscodeignore                    # 打包忽略文件
+├── .gitignore                       # Git 忽略文件
+└── README.md                        # 项目文档
 ```
 
 ## ✅ 已完成功能
 
-### DOSBox 集成
-- [x] Trace Logger 模块
-- [x] CPU 核心 hook
-- [x] Shell 命令（TRACE_ENABLE/TRACE_DISABLE）
-- [x] JSON 格式输出
+### 1. 答案式模式 ✓
 
-### Agent 系统
-- [x] 5个工具模块
-- [x] 4层提示词系统
-- [x] ReAct 架构
-- [x] 数据库表结构
-- [x] 学习进度跟踪
+直接回答编程问题，提供即时解决方案。
 
-### 前端集成
-- [x] 自动检测汇编代码
-- [x] 自动启用 Agent
-- [x] 传递当前代码
-- [x] 无需手动配置
+**功能特点：**
+- ✅ 快速响应编程问题
+- ✅ 提供完整的代码示例
+- ✅ 支持多种编程语言
+- ✅ 代码语法高亮显示
+- ✅ 上下文感知的智能回答
 
-### 测试和文档
-- [x] 测试脚本
-- [x] 编译脚本
-- [x] 完整文档
-- [x] 快速开始指南
+**使用场景：**
+- 快速查询 API 用法
+- 获取代码示例
+- 解决具体编程问题
+- 代码片段生成
 
-## 🎓 使用示例
+### 2. 引导式模式 ✓
 
-### 引导模式
+通过问答引导，帮助开发者深入理解问题。
 
-**学生**: "我想写一个加法程序"
+**功能特点：**
+- ✅ 渐进式问题引导
+- ✅ 培养编程思维
+- ✅ 深入理解问题本质
+- ✅ 提供学习路径建议
+- ✅ 互动式教学体验
 
-**Agent**: "很好！在开始之前，你能描述一下需要哪些步骤吗？"
+**使用场景：**
+- 学习新技术概念
+- 理解复杂算法
+- 架构设计讨论
+- 最佳实践探索
 
-**学生**: "先把数字放到寄存器里，然后相加"
+### 3. 核心交互功能 ✓
 
-**Agent**: "对的！那你觉得应该使用哪些寄存器呢？"
+- ✅ **代码上下文添加**：右键选中代码，添加到 AI 对话
+- ✅ **快捷键支持**：
+  - `Ctrl+I` - 切换 AI 面板
+  - `Cmd+Y` - 快速输入
+- ✅ **多轮对话**：支持连续对话，保持上下文
+- ✅ **新建对话**：快速开始新的对话会话
+- ✅ **设置管理**：可配置 API 密钥和模型参数
 
-### 调试模式
+### 4. Agent 模式（开发中）🚧
 
-**学生**: "我的代码结果不对"
+基于 **ReAct (Reasoning + Acting)** 架构的智能教学 Agent，专注于 8086 汇编语言教学，采用苏格拉底式引导教学法。
 
-**Agent**: "能说说你预期的结果是什么吗？"
+#### 设计架构
 
-**学生**: "我想让 AX = 8，但结果是 5"
+Agent 模式采用 **Plan → Execute → Observe** 循环架构：
 
-**Agent**: "让我们一步步看。执行第一条指令后，AX 的值是多少？"
-
-## 🔍 Trace 示例
-
-```json
-[
-  {
-    "step": 1,
-    "instruction": "MOV AX, 5",
-    "address": "0000:0100",
-    "register_diff": {"AX": {"before": 0, "after": 5}},
-    "flags_diff": {},
-    "memory_write": null,
-    "jump_info": null
-  },
-  {
-    "step": 2,
-    "instruction": "ADD AX, 3",
-    "address": "0000:0103",
-    "register_diff": {"AX": {"before": 5, "after": 8}},
-    "flags_diff": {"ZF": {"before": 0, "after": 0}},
-    "memory_write": null,
-    "jump_info": null
-  }
-]
+```
+用户输入 → Agent 推理 → 工具调用 → 观察结果 → 生成回答
+    ↑                                              ↓
+    └──────────────── 循环迭代 ────────────────────┘
 ```
 
-## 🐛 故障排除
+**核心组件：**
 
-查看 **QUICKSTART_GUIDE.md** 中的故障排除部分。
+1. **Agent Core** (`agent_core.py`)
+   - 基于 LangChain v1 Agent 框架
+   - 集成 OpenAI GPT 模型
+   - 实现 ReAct 推理循环
+   - 工具调用限制中间件（最多 5 次/轮）
 
-## 📈 下一步优化
+2. **Prompt System** (`agent_prompts/`)
+   - `system_prompt.py`: 苏格拉底式教学系统提示词
+   - `mode_prompt.py`: 引导模式 (guide) 和调试模式 (debug)
+   - `task_prompt.py`: 动态任务提示词构建
+   - `tool_prompt.py`: 工具使用说明
 
-- [ ] 添加指令反汇编
-- [ ] 优化 trace 性能
-- [ ] 添加 UI 可视化
-- [ ] 支持更多汇编语法
-- [ ] 添加更多教学场景
+3. **Tool System** (`agent_tools/`) - 5 个核心工具
 
-## 📝 许可证
+#### 工具集设计
 
-本项目基于 DOSBox（GPL v2）开发。
+| 工具名称 | 功能描述 | 输入 | 输出 |
+|---------|---------|------|------|
+| **Student Tree** | 跟踪学生学习进度和理解程度 | session_id | 学生状态字典 |
+| **Code Analyzer** | 静态分析汇编代码，识别潜在问题 | 汇编代码字符串 | 分析结果（语法错误、逻辑警告） |
+| **Code Executor** | 在 DOSBox 中执行代码并记录 trace | code, session_id | execution_id |
+| **Step Explainer** | 解释单步执行信息或完整 trace | step_data / trace_list | 结构化解释文本 |
+| **Hint Generator** | 生成不同强度的引导性问题 | context, hint_level | 引导性问题 |
+
+#### 调用流程
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. 用户输入问题 + 当前代码                                    │
+└────────────────────┬────────────────────────────────────────┘
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Agent 接收输入并构建上下文                                 │
+│    - 获取学生进度 (Student Tree)                             │
+│    - 构建任务提示词 (Task Prompt)                            │
+│    - 选择模式提示词 (Mode Prompt)                            │
+└────────────────────┬────────────────────────────────────────┘
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. ReAct 循环开始                                            │
+│    ┌──────────────────────────────────────────────┐         │
+│    │ 3.1 Reasoning: LLM 分析问题，决定行动        │         │
+│    └────────────────┬─────────────────────────────┘         │
+│                     ▼                                        │
+│    ┌──────────────────────────────────────────────┐         │
+│    │ 3.2 Acting: 调用工具                         │         │
+│    │  - 分析代码 (Code Analyzer)                  │         │
+│    │  - 执行代码 (Code Executor)                  │         │
+│    │  - 获取 trace (get_execution_trace)          │         │
+│    │  - 解释步骤 (Step Explainer)                 │         │
+│    │  - 生成提示 (Hint Generator)                 │         │
+│    └────────────────┬─────────────────────────────┘         │
+│                     ▼                                        │
+│    ┌──────────────────────────────────────────────┐         │
+│    │ 3.3 Observing: 观察工具返回结果              │         │
+│    └────────────────┬─────────────────────────────┘         │
+│                     ▼                                        │
+│    ┌──────────────────────────────────────────────┐         │
+│    │ 3.4 判断：是否需要继续调用工具？             │         │
+│    │  - 是 → 返回 3.1                             │         │
+│    │  - 否 → 生成最终回答                         │         │
+│    └──────────────────────────────────────────────┘         │
+└────────────────────┬────────────────────────────────────────┘
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. 生成引导性回答                                            │
+│    - 不直接给出答案或代码                                    │
+│    - 以问题结尾，引导学生思考                                │
+│    - 控制在 1-2 句话                                         │
+└────────────────────┬────────────────────────────────────────┘
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. 更新学生进度 (Student Tree)                               │
+└────────────────────┬────────────────────────────────────────┘
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 6. 流式返回给前端显示                                        │
+│    - agent_step: 工具调用过程（可选显示）                    │
+│    - final_answer: 最终回答                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### DOSBox 集成
+
+Agent 模式的核心特性之一是与修改版 DOSBox 的深度集成：
+
+**修改内容：**
+- 在 DOSBox 源码中添加 trace 输出功能
+- 记录每条指令执行前后的寄存器状态
+- 记录标志位变化和内存写入操作
+- 输出 JSON 格式的 trace 数据
+
+**执行流程：**
+1. Agent 调用 `Code Executor` 工具
+2. 将汇编代码编译为 COM 文件（使用 NASM）
+3. 在 DOSBox 中执行，启用 trace 记录
+4. 解析 trace 数据并存入 SQLite 数据库
+5. Agent 调用 `Step Explainer` 解释执行过程
+6. 生成引导性问题帮助学生理解
+
+#### 教学策略
+
+Agent 采用 **苏格拉底式教学法**，遵循以下原则：
+
+- ✅ 用问题引导思考，而非直接告知
+- ✅ 逐步提供线索，控制提示强度
+- ✅ 肯定学生的思考过程
+- ✅ 引导学生自己发现问题和解决方案
+- ❌ 绝不直接给出完整代码或代码片段
+- ❌ 绝不直接指出错误位置和修改方案
+
+#### 当前状态
+
+- ✅ ReAct 架构实现完成
+- ✅ 5 个核心工具开发完成
+- ✅ 提示词系统设计完成
+- ✅ DOSBox 集成方案设计完成
+- 🚧 前端 UI 集成（进行中）
+- 🚧 DOSBox trace 功能测试（进行中）
+- 📋 多轮对话上下文优化（待开发）
+- 📋 学生进度可视化（待开发）
+
+## 🔮 未来规划
+
+- [ ] 支持更多 LLM 提供商（Claude, Gemini 等）
+- [ ] 代码重构建议
+- [ ] 自动化测试生成
+- [ ] 代码审查功能
+- [ ] 团队协作功能
+- [ ] 插件市场发布
+
+## 🤝 贡献指南
+
+欢迎贡献代码、报告问题或提出建议！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+## 📄 开源协议
+
+本项目采用 MIT 协议 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 📧 联系方式
+
+如有问题或建议，欢迎通过以下方式联系：
+
+- 提交 Issue: [GitHub Issues](https://github.com/your-username/ai-coding-tool/issues)
+- 邮箱: your-email@example.com
 
 ## 🙏 致谢
 
-- DOSBox Team
-- LangChain
-- OpenAI
+感谢以下开源项目：
+
+- [VS Code Extension API](https://code.visualstudio.com/api)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [LangChain](https://www.langchain.com/)
+- [OpenAI](https://openai.com/)
 
 ---
 
-**版本**: v1.0  
-**状态**: Ready for Testing 🚀  
-**日期**: 2026-04-09
-# -
-特点：苏格拉底式引导
+<div align="center">
+
+**如果这个项目对你有帮助，请给一个 ⭐️ Star！**
+
+Made with ❤️ by [Your Name]
+
+</div>
