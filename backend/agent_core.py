@@ -1,6 +1,5 @@
 """
-Agent Core - ReAct 架构的 AI Agent 核心
-实现 Plan → Execute → Observe 循环，集成所有工具
+Agent Core - ReAct 架构的 AI Agent 核心:实现 Plan → Execute → Observe 循环，集成所有工具
 """
 import json
 import sys

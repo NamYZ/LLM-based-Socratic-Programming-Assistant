@@ -4,7 +4,6 @@
 
 一个集成了 AI 能力的 VS Code 扩展，提供智能代码补全、问题解答和编程引导功能
 
-
 </div>
 
 ---
@@ -39,16 +38,17 @@ AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code
 - **可扩展架构**：模块化设计，易于扩展和定制
 - **DOSBox 集成**：支持特定环境下的代码执行和测试
 
-## 🚀 快速开始（macOS）
+## 🚀 快速开始
 
 ### 前置要求
 
 - **Node.js** (推荐 v18 或更高版本)
 - **Python** 3.8+
-- **Homebrew** (macOS 包管理器)
 - **VS Code** 1.85.0 或更高版本
 
-### 安装步骤
+---
+
+### 🍎 macOS 系统
 
 #### 1. 安装系统依赖
 
@@ -110,14 +110,83 @@ cd backend
 uvicorn app_fastapi:app --reload --port 8000
 ```
 
-#### 7. 在 VS Code 中调试
+#### 6. 在 VS Code 中调试
 
 1. 在 VS Code 中打开项目文件夹
 2. 按 `F5` 启动扩展开发主机
 3. 在新打开的 VS Code 窗口中，点击侧边栏的 AI Coding Tool 图标
 4. 开始使用！
 
-### 验证安装
+---
+
+### 🪟 Windows 系统
+
+#### 1. 安装系统依赖
+
+- 从 [Node.js 官网](https://nodejs.org/) 下载并安装 Node.js (推荐 v18 或更高版本)
+- 从 [Python 官网](https://www.python.org/downloads/) 下载并安装 Python 3.8+
+- 安装 [Git for Windows](https://git-scm.com/download/win)
+- 安装 **Visual Studio 2022** 或 **Build Tools for Visual Studio 2022**（用于编译 DOSBox）
+  - 安装时需选择 "Desktop development with C++" 工作负载
+
+#### 2. 克隆项目
+
+```cmd
+git clone https://github.com/your-username/ai-coding-tool.git
+cd ai-coding-tool
+```
+
+#### 3. 安装前端依赖
+
+```cmd
+npm install
+```
+
+#### 4. 安装后端依赖
+
+```cmd
+pip install -r backend\requirements.txt
+```
+
+或使用虚拟环境（推荐）：
+
+```cmd
+python -m venv venv
+venv\Scripts\activate
+pip install -r backend\requirements.txt
+```
+
+#### 5. 启动项目
+
+**命令提示符 1 - 编译前端（监听模式）：**
+
+```cmd
+npm run watch
+```
+
+**命令提示符 2 - 启动后端服务：**
+
+```cmd
+start-backend.bat
+```
+
+或手动启动：
+
+```cmd
+cd backend
+uvicorn app_fastapi:app --reload --port 8000
+```
+
+#### 6. 在 VS Code 中调试
+
+1. 在 VS Code 中打开项目文件夹
+2. 按 `F5` 启动扩展开发主机
+3. 在新打开的 VS Code 窗口中，点击侧边栏的 AI Coding Tool 图标
+4. 开始使用！
+
+---
+
+### ✅ 验证安装
 
 在新打开的 VS Code 窗口中：
 

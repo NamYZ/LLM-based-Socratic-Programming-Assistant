@@ -1,21 +1,25 @@
 """
-模型配置管理路由
-处理 AI 模型配置的增删改查和激活操作
+模型配置管理路由：处理 AI 模型配置的增删改查和激活操作
 """
+
 from fastapi import APIRouter, HTTPException
 import sqlite3
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 导入自定义模块
 from models import SettingsRequest, ConfigRequest
 from database import DB_PATH, get_api_key, get_local_time
+
 
 router = APIRouter()
 
 
 @router.get("/api/settings")
 async def get_settings():
-    """获取当前模型配置接口，返回是否已配置以及部分配置信息（API Key 进行掩码处理）"""
+    """获取当前模型配置接口, 返回是否已配置以及部分配置信息(API Key 进行掩码处理)"""
     api_key, model_name, provider, base_url = get_api_key()
     if api_key:
         masked = api_key[:8] + '****' + api_key[-4:] if len(api_key) > 12 else '****'

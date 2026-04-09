@@ -1,7 +1,7 @@
 """
-聊天路由
-处理聊天消息的发送和 AI 回复的流式返回
+聊天路由：处理聊天消息发送 - AI 回复 - Agent 过程事件 的 API 请求
 """
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 import sqlite3
@@ -9,24 +9,28 @@ import json
 import re
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 导入 langchain 相关模块
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
+
+# 导入自定义模块
 from models import ChatRequest
-from database import DB_PATH, get_api_key, get_local_time, auto_title, get_session_history
-from guided_mode_prompts import GUIDED_SYSTEM_PROMPT
-from question_mode_prompts import ANSWER_SYSTEM_PROMPT
 from agent_core import create_agent
+from database import DB_PATH, get_api_key, get_local_time, auto_title, get_session_history
+from ask_prompts import GUIDED_SYSTEM_PROMPT, ANSWER_SYSTEM_PROMPT
+
 
 router = APIRouter()
 
 
 def contains_code(text: str) -> bool:
     """
-    检查文本中是否包含代码相关内容
-    返回 True 表示包含代码，False 表示不包含
+    检查文本中是否包含代码相关内容：返回 True 表示包含代码, False 表示不包含
     """
     # 检查代码块标记
     if '```' in text or '`' in text:

@@ -1,4 +1,6 @@
-# 数据库相关操作函数
+"""
+数据库层: database.py
+"""
 import sqlite3
 import os
 from typing import Dict
@@ -101,7 +103,9 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # 建立数据库表格：model_configs_vscode、sessions_vscode、messages_vscode
+    # 建立数据库表格：model_configs_vscode、sessions_vscode、messages_vscode、execution_traces、student_progress
+
+    # 模型配置表，存储用户保存的 AI 模型配置（API Key、模型名称、提供商、BASE_URL等）
     c.execute('''
         CREATE TABLE IF NOT EXISTS model_configs_vscode (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,6 +120,7 @@ def init_db():
         )
     ''')
 
+    # 会话表，存储每个对话会话的基本信息（标题、模式、创建和更新时间）
     c.execute('''
         CREATE TABLE IF NOT EXISTS sessions_vscode (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,6 +131,7 @@ def init_db():
         )
     ''')
 
+    # 会话消息表，关联 sessions_vscode 表，存储每条消息的角色（用户/AI）和内容
     c.execute('''
         CREATE TABLE IF NOT EXISTS messages_vscode (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

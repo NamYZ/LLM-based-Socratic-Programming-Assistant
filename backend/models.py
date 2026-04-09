@@ -1,9 +1,9 @@
 """
-数据模型定义
-定义所有 Pydantic 模型用于请求和响应的数据验证
+数据模型定义 - 定义所有 Pydantic 模型用于请求和响应的数据验证
 """
+
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
 # BaseModel 用于请求参数校验 - 数据结构定义
 class SettingsRequest(BaseModel):
@@ -32,3 +32,4 @@ class ChatRequest(BaseModel):
     samplingParams: Optional[dict] = None
     current_code: Optional[str] = None  # 当前编辑器代码
     use_agent: bool = False  # 是否使用 Agent 模式
+    

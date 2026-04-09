@@ -1,6 +1,5 @@
 """
-Agent 模式提示词
-定义 guide 和 debug 两种模式的具体行为
+Agent 模式提示词：定义 guide 和 debug 两种模式的具体行为
 """
 
 GUIDE_MODE_PROMPT = """【当前模式：引导模式 (Guide)】
