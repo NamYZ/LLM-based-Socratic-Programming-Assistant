@@ -1,6 +1,6 @@
 <div align="center">
 
-**智能编程助手 VS Code 扩展**
+# 智能编程助手 VS Code 扩展
 
 一个集成了 AI 能力的 VS Code 扩展，提供智能代码补全、问题解答和编程引导功能
 
@@ -10,7 +10,7 @@
 
 ## 📖 项目简介
 
-AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code 扩展插件（苏格拉底式）。它通过集成先进的 AI 技术，为开发者提供实时的代码理解、问题解答和编程指导，显著提升开发效率和代码质量。
+AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code 扩展插件（苏格拉底式引导）。它通过集成先进的 AI 技术，为开发者提供实时的代码理解、问题解答和编程指导，显著提升开发效率和代码质量。
 
 本项目采用前后端分离架构，前端为 VS Code 扩展，后端基于 FastAPI 和 LangChain 构建，支持多种交互模式，并集成了 DOSBox 环境用于特定场景的代码执行和测试。
 
@@ -26,6 +26,7 @@ AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code
 - **代码选择添加**：右键选中代码片段，快速添加到 AI 对话上下文
 - **多文件支持**：支持跨文件的代码理解和分析
 
+
 ### ⚡ 高效交互体验
 - **快捷键操作**：
   - `Ctrl+I` (macOS: `Ctrl+I`) - 快速切换 AI 面板
@@ -33,10 +34,12 @@ AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code
 - **侧边栏集成**：AI 助手面板无缝集成到 VS Code 侧边栏
 - **实时响应**：流式输出，即时获得 AI 反馈
 
+
 ### 🔧 开发者友好
 - **本地部署**：支持本地运行，保护代码隐私
 - **可扩展架构**：模块化设计，易于扩展和定制
 - **DOSBox 集成**：支持特定环境下的代码执行和测试
+
 
 ## 🚀 快速开始
 
@@ -48,19 +51,21 @@ AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code
 
 ---
 
-### 🍎 macOS 系统
+### 安装与启动
 
 #### 1. 安装系统依赖
 
+**macOS:**
 使用 Homebrew 安装必要的系统库：
 
 ```bash
 # 安装 Node.js（如果尚未安装）
 brew install node
-
-# 安装 SDL 相关库（用于 DOSBox）
-brew install sdl sdl2_net sdl2_sound automake autoconf gcc
 ```
+
+**Windows:**
+- 从 [Node.js 官网](https://nodejs.org/) 下载并安装 Node.js (推荐 v18 或更高版本)
+- 从 [Python 官网](https://www.python.org/downloads/) 下载并安装 Python 3.8+
 
 #### 2. 克隆项目
 
@@ -76,6 +81,8 @@ npm install
 ```
 
 #### 4. 安装后端依赖
+
+**macOS:**
 
 ```bash
 pip install -r backend/requirements.txt
@@ -89,60 +96,7 @@ source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-#### 5. 启动项目
-
-**终端 1 - 编译前端（监听模式）：**
-
-```bash
-npm run watch
-```
-
-**终端 2 - 启动后端服务：**
-
-```bash
-./start-backend.sh
-```
-
-或手动启动：
-
-```bash
-cd backend
-uvicorn app_fastapi:app --reload --port 8000
-```
-
-#### 6. 在 VS Code 中调试
-
-1. 在 VS Code 中打开项目文件夹
-2. 按 `F5` 启动扩展开发主机
-3. 在新打开的 VS Code 窗口中，点击侧边栏的 AI Coding Tool 图标
-4. 开始使用！
-
----
-
-### 🪟 Windows 系统
-
-#### 1. 安装系统依赖
-
-- 从 [Node.js 官网](https://nodejs.org/) 下载并安装 Node.js (推荐 v18 或更高版本)
-- 从 [Python 官网](https://www.python.org/downloads/) 下载并安装 Python 3.8+
-- 安装 [Git for Windows](https://git-scm.com/download/win)
-- 安装 **Visual Studio 2022** 或 **Build Tools for Visual Studio 2022**（用于编译 DOSBox）
-  - 安装时需选择 "Desktop development with C++" 工作负载
-
-#### 2. 克隆项目
-
-```cmd
-git clone https://github.com/your-username/ai-coding-tool.git
-cd ai-coding-tool
-```
-
-#### 3. 安装前端依赖
-
-```cmd
-npm install
-```
-
-#### 4. 安装后端依赖
+**Windows:**
 
 ```cmd
 pip install -r backend\requirements.txt
@@ -158,13 +112,28 @@ pip install -r backend\requirements.txt
 
 #### 5. 启动项目
 
-**命令提示符 1 - 编译前端（监听模式）：**
+**终端 1 - 编译前端（监听模式）：**
 
-```cmd
+```bash
 npm run watch
 ```
 
-**命令提示符 2 - 启动后端服务：**
+**终端 2 - 启动后端服务：**
+
+**macOS:**
+
+```bash
+./start-backend.sh
+```
+
+或手动启动：
+
+```bash
+cd backend
+uvicorn app_fastapi:app --reload --port 8000
+```
+
+**Windows:**
 
 ```cmd
 start-backend.bat
