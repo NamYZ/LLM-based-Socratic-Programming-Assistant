@@ -223,40 +223,6 @@ function parseMarkdown(text) {
   return htmlBlocks.join('');
 }
 
-// 判断是否与代码相关（复制自 contextAnalyzer.ts）
-function isCodeRelated(message) {
-  const codeKeywords = [
-    // 中文关键词
-    '代码', '函数', '方法', '类', '变量', '报错', '错误', 'bug',
-    '这里', '这段', '这个', '我的', '当前', '上面', '下面',
-    '优化', '重构', '修改', '改', '解释', '说明', '为什么', '怎么',
-    '不工作', '不运行', '失败', '问题', '异常', '调试',
-    '实现', '添加', '删除', '更新', '修复',
-    // 英文关键词
-    'function', 'method', 'class', 'variable', 'error', 'exception',
-    'this', 'here', 'above', 'below', 'current',
-    'optimize', 'refactor', 'modify', 'explain', 'why', 'how',
-    'fix', 'debug', 'issue', 'implement', 'add', 'remove', 'update',
-    'not working', 'doesn\'t work', 'failed', 'fails'
-  ];
-
-  const lowerMessage = message.toLowerCase();
-  return codeKeywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
-}
-
-// 判断是否是通用问题
-function isGeneralQuestion(message) {
-  const generalPatterns = [
-    /^(你好|hi|hello|嗨)/i,
-    /^(什么是|what is|介绍|introduce)/i,
-    /^(如何学习|怎么学|how to learn)/i,
-    /写.*新.*代码/i,
-    /创建.*新.*文件/i
-  ];
-
-  return generalPatterns.some(pattern => pattern.test(message));
-}
-
 // 格式化时间显示
 function formatTimeAgo(timestamp) {
   if (!timestamp) {
@@ -313,9 +279,8 @@ let modelParams = {
 
 // DOM 元素（给页面上的各个交互组件起名字，后续代码可以通过变量直接操作这些组件）
 
-// 聊天消息展示区域 - 空状态 - 消息输入文本框 - 发送消息按钮
+// 聊天消息展示区域 - 消息输入文本框 - 发送消息按钮
 const messagesArea = document.getElementById('messages-area');
-const emptyState = document.getElementById('empty-state');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const attachBtn = document.getElementById('attach-btn');
@@ -522,7 +487,7 @@ modeSelectPanel.querySelector('.mode-option[data-value="answer"]').classList.add
 
 console.log('[Webview] Setting up event listeners...');
 
-// 发送消息 - 点击逻辑
+// 发送消息 - 点击逻辑（ addEventListener 只负责监听用户点击事件，不负责处理事件）
 sendBtn.addEventListener('click', () => {
   console.log('[Webview] Send button clicked');
 
@@ -558,7 +523,9 @@ attachBtn.addEventListener('click', () => {
     return;
   }
 
+  // 调用 vscode.postMessage 发送类型为 pickFileReference 的消息给 ChatViewProvider 处理
   vscode.postMessage({ type: 'pickFileReference' });
+  // pickFileReference 为字符串，用于通知 ChatViewProvider 处理文件引用逻辑
 });
 
 // 模式选择按钮逻辑 - 切换面板显示
@@ -1183,7 +1150,7 @@ function renderConfigList(configs) {
   });
 }
 
-// 发送消息函数 - 包括输入验证、UI 更新、向后端发送消息等逻辑
+// 发送消息函数 - 包括输入验证、UI 更新、向后端发送消息等逻辑（调用 vscode.postMessage 发送消息给 ChatViewProvider 处理）
 function sendMessage() {
   console.log('[Webview] sendMessage() called');
 
@@ -1215,12 +1182,8 @@ function sendMessage() {
   codeContexts = [];
   renderCodeContextTags();
 
-  // 判断是否需要读取当前代码
-  const needsCode = isCodeRelated(message) && !isGeneralQuestion(message);
-  const placeholderText = needsCode ? '正在读取当前代码并进行分析...' : '正在思考...';
-
   // 创建 AI 消息占位符（避免 AI 响应速度慢时界面无反馈）
-  const aiMsgDiv = addMessage('assistant', placeholderText, [], true);
+  const aiMsgDiv = addMessage('assistant', '正在思考...', [], true);
   setActiveStreamingMessage(aiMsgDiv);
 
   // 准备采样参数（只包含启用的参数）
@@ -1706,11 +1669,8 @@ function regenerateLastMessage() {
   updateSendButtonState(true);
   resetStreamingRenderState();
 
-  const needsCode = isCodeRelated(messageContent) && !isGeneralQuestion(messageContent);
-  const placeholderText = needsCode ? '正在读取当前代码并进行分析...' : '正在思考...';
-
   // 创建 AI 消息占位符
-  const aiMsgDiv = addMessage('assistant', placeholderText, [], true);
+  const aiMsgDiv = addMessage('assistant', '正在思考...', [], true);
   setActiveStreamingMessage(aiMsgDiv);
 
   console.log('[Webview] Regenerating message:', { message: messageContent, session_id: currentSessionId, mode: currentMode });

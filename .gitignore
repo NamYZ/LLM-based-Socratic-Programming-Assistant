@@ -43,22 +43,6 @@ config.log
 .deps/
 *.Po
 
-# Ignore generated Makefiles but keep originals
-dosbox-code-0-r4494-dosbox-trunk/Makefile
-dosbox-code-0-r4494-dosbox-trunk/**/Makefile
-!dosbox-code-0-r4494-dosbox-trunk/docs/Makefile
-!dosbox-code-0-r4494-dosbox-trunk/docs/Makefile.am
-!dosbox-code-0-r4494-dosbox-trunk/docs/Makefile.in
-!dosbox-code-0-r4494-dosbox-trunk/include/Makefile
-!dosbox-code-0-r4494-dosbox-trunk/include/Makefile.am
-!dosbox-code-0-r4494-dosbox-trunk/include/Makefile.in
-!dosbox-code-0-r4494-dosbox-trunk/src/Makefile
-!dosbox-code-0-r4494-dosbox-trunk/src/Makefile.am
-!dosbox-code-0-r4494-dosbox-trunk/src/Makefile.in
-!dosbox-code-0-r4494-dosbox-trunk/src/**/Makefile
-!dosbox-code-0-r4494-dosbox-trunk/src/**/Makefile.am
-!dosbox-code-0-r4494-dosbox-trunk/src/**/Makefile.in
-
 # Database
 *.db
 *.sqlite

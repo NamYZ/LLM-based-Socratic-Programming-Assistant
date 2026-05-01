@@ -1,0 +1,13 @@
+# AI Coding Tool - Python Dependencies
+# 核心框架
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+
+# LangChain 相关
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-core>=0.1.0
+langchain-community>=0.0.20
+
+# 注意：sqlite3 是 Python 内置模块，无需安装

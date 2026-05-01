@@ -8,8 +8,8 @@
 	},
 	// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
 	"js/ts.tsc.autoDetect": "off",
-	"python-envs.defaultEnvManager": "ms-python.python:conda",
-	"python-envs.defaultPackageManager": "ms-python.python:conda"
+	"python-envs.defaultEnvManager": "ms-python.python:venv",
+	"python-envs.defaultPackageManager": "ms-python.python:pip"
 }
 
 // 这个文件是 VS Code 的用户设置文件，用于覆盖默认和用户设置，仅对当前项目生效（部分提交Github）

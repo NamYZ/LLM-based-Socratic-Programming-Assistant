@@ -19,6 +19,10 @@ from agent_tools.code_analyzer import analyze_code
 from agent_tools.code_executor import execute_code, get_execution_trace
 from agent_tools.step_explainer import explain_step, explain_trace
 from agent_tools.hint_generator import generate_hint
+from agent_tools.teaching_strategy import (
+    analyze_student_response,
+    should_execute_code as should_execute_code_func
+)
 
 # 导入提示词
 from agent_prompts.system_prompt import AGENT_SYSTEM_PROMPT
@@ -58,42 +62,47 @@ class AssemblyTeachingAgent:
             StructuredTool.from_function(
                 name="get_student_progress",
                 func=get_student_progress,
-                description="获取学生的学习进度和理解程度。输入：session_id（会话ID）。返回：学生状态字典。"
+                description="获取学生的学习进度和理解程度。输入：session_id（会话ID）。返回：学生状态字典，包含已学习主题、已回答问题数、当前提示强度等。"
             ),
             StructuredTool.from_function(
                 name="update_student_progress",
                 func=update_student_progress,
-                description="更新学生的学习进度。输入：session_id、topic、question、answered、hint_level。"
+                description="更新学生的学习进度。输入：session_id、topic（主题）、question（问题）、answered（是否回答正确）、hint_level（提示强度0-3）。用于记录学生的学习状态。"
             ),
             StructuredTool.from_function(
                 name="analyze_code",
                 func=analyze_code,
-                description="静态分析汇编代码，识别潜在问题。输入：汇编代码字符串。返回：分析结果字典。"
+                description="静态分析汇编代码，识别语法错误和潜在问题。输入：汇编代码字符串。返回：分析结果字典（errors、warnings、suggestions、stats）。快速检查代码问题，无需执行。"
             ),
             StructuredTool.from_function(
                 name="execute_code",
                 func=execute_code,
-                description="执行8086汇编代码并记录trace。输入：code、session_id。返回：execution_id。"
+                description="执行8086汇编代码并记录trace。输入：code（汇编代码）、session_id（会话ID）。返回：execution_id（用于获取trace）或ERROR开头的错误信息。注意：只在调试模式或学生明确要求时使用。"
             ),
             StructuredTool.from_function(
                 name="get_execution_trace",
                 func=get_execution_trace,
-                description="获取代码执行的详细trace信息。输入：execution_id。返回：trace数据列表。"
+                description="获取代码执行的详细trace信息。输入：execution_id（由execute_code返回）。返回：trace数据列表，包含每步的指令、寄存器变化、标志位变化等。必须在execute_code之后调用。"
             ),
             StructuredTool.from_function(
                 name="explain_step",
                 func=explain_step,
-                description="解释单步执行信息。输入：step_data。返回：结构化解释文本。"
+                description="解释单步执行信息。输入：step_data（单步trace数据）。返回：结构化解释文本，说明该步骤的指令含义、寄存器变化等。用于理解某一步的细节。"
             ),
             StructuredTool.from_function(
                 name="explain_trace",
                 func=explain_trace,
-                description="解释完整的执行trace。输入：trace数据列表。返回：解释文本。"
+                description="解释完整的执行trace，总结关键变化。输入：trace数据列表。返回：整体分析文本，包括指令类型分布、寄存器使用、关键步骤等。用于理解整个执行流程。"
             ),
             StructuredTool.from_function(
                 name="generate_hint",
                 func=generate_hint,
-                description="生成引导性问题。输入：context、hint_level。返回：引导性问题。"
+                description="生成引导性问题。输入：context（包含mode、code、analysis、trace等）、hint_level（0-3，0最弱3最强）。返回：引导性问题字符串。用于生成合适强度的苏格拉底式提示。"
+            ),
+            StructuredTool.from_function(
+                name="analyze_student_response",
+                func=analyze_student_response,
+                description="分析学生回答的质量。输入：user_message（学生回答）、expected_concepts（期望概念列表）、previous_hint_level（之前的提示强度）。返回：回答质量评估和建议的提示强度。用于动态调整教学策略。"
             ),
         ]
 

@@ -1,4 +1,7 @@
+// ts文件运行在 node.js 环境中，有完整的 vscode api 支持
 import * as vscode from 'vscode';
+
+// 导入 ChatViewProvider 相关的类对象（从 providers 的其他文件导入）
 import { SessionExporter } from './SessionExporter';
 import { FileReferenceHandler } from './FileReferenceHandler';
 import { ConfigDatabaseManager } from './ConfigDatabaseManager';
@@ -11,12 +14,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _manualCodeContexts: CodeContext[] = [];
 
+  // 成员变量声明 - 用于存储 ChatViewProvider 相关的实例对象
   private sessionExporter: SessionExporter;
   private fileReferenceHandler: FileReferenceHandler;
   private configDbManager: ConfigDatabaseManager;
   private messageHandler: MessageHandler;
   private webviewContentProvider: WebviewContentProvider;
 
+  // 初始化 ChatViewProvider
   constructor(private readonly _extensionContext: vscode.ExtensionContext) {
     this.sessionExporter = new SessionExporter();
     this.fileReferenceHandler = new FileReferenceHandler();
@@ -41,6 +46,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this.webviewContentProvider.getHtmlForWebview(webviewView.webview);
 
+    // 监听来自 webview.js 的 sendMessage 方法通过 webview.postMessage 发送的消息事件
     webviewView.webview.onDidReceiveMessage(
       async (message) => {
         await this._handleMessage(message);
@@ -49,7 +55,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this._extensionContext.subscriptions
     );
   }
-
+  
+  // 处理来自 webview.js 的消息（不同类型的消息）
   private async _handleMessage(message: any) {
     const API_BASE = 'http://localhost:5500';
 
@@ -71,6 +78,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           const result = await response.json() as { success?: boolean; detail?: string };
 
           if (response.ok) {
+
+            // webview.postMessage 发送消息给 webview.js，通知设置已保存
             this._view?.webview.postMessage({
               type: 'settingsSaved',
               success: true
@@ -102,6 +111,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
         break;
 
+      // 分发 sendMessage 消息到 MessageHandler 文件处理
       case 'sendMessage':
         await this.messageHandler.handleSendMessage(message, this._view, API_BASE);
         break;

@@ -64,6 +64,7 @@ class CodeExecutor:
 
         返回：
             execution_id: 执行 ID（用于后续查询 trace）
+            或 "ERROR:类型:详细信息" 格式的错误信息
         """
         execution_id = str(uuid.uuid4())
 
@@ -79,19 +80,21 @@ class CodeExecutor:
             with open(asm_file, 'w') as f:
                 f.write(self._prepare_com_program(code))
 
-            # 2. 调用 DOSBox 执行（需要修改后的 DOSBox 支持 trace 输出）
-            # 这里是占位实现，实际需要与修改后的 DOSBox 集成
-            trace_data = self._execute_with_dosbox(asm_file, trace_file)
+            # 2. 调用 DOSBox 执行
+            trace_data, error_info = self._execute_with_dosbox(asm_file, trace_file)
 
-            # 3. 解析 trace 并存入数据库
+            # 3. 如果有错误，返回错误信息
+            if error_info:
+                return f"ERROR:{error_info['type']}:{error_info['message']}"
+
+            # 4. 解析 trace 并存入数据库
             self._save_trace_to_db(execution_id, session_id, trace_data)
 
             return execution_id
 
         except Exception as e:
             print(f"[CodeExecutor] 执行失败: {e}")
-            # 返回错误信息作为 execution_id
-            return f"ERROR: {str(e)}"
+            return f"ERROR:SYSTEM:系统错误 - {str(e)}"
 
     def _prepare_com_program(self, code: str) -> str:
         """将用户片段补成可执行的 COM 程序，避免 DOSBox 挂起。"""
@@ -113,7 +116,7 @@ class CodeExecutor:
 
         return "\n".join(program_lines) + "\n"
 
-    def _execute_with_dosbox(self, asm_file: str, trace_file: str) -> list:
+    def _execute_with_dosbox(self, asm_file: str, trace_file: str) -> tuple:
         """
         使用 DOSBox 执行汇编代码并获取 trace
 
@@ -122,22 +125,25 @@ class CodeExecutor:
             trace_file: trace 输出文件路径
 
         返回：
-            trace 数据列表
+            (trace_data, error_info) 元组
+            - trace_data: trace 数据列表（成功时）
+            - error_info: 错误信息字典（失败时），格式 {"type": "...", "message": "..."}
         """
         try:
-            # 1. 编译汇编代码为 COM 文件（使用 NASM 或 MASM）
+            # 1. 编译汇编代码为 COM 文件
             com_file = asm_file.replace('.asm', '.com')
-
-            # 尝试使用 nasm 编译
             compile_cmd = f"nasm -f bin -o {com_file} {asm_file}"
-            result = subprocess.run(compile_cmd, shell=True, capture_output=True, text=True)
+            result = subprocess.run(compile_cmd, shell=True, capture_output=True, text=True, timeout=5)
 
             if result.returncode != 0:
-                print(f"[CodeExecutor] 编译失败: {result.stderr}")
-                # 如果编译失败，返回模拟数据
-                return self._get_mock_trace()
+                error_msg = result.stderr.strip() or "编译失败"
+                print(f"[CodeExecutor] 编译失败: {error_msg}")
+                return None, {
+                    "type": "COMPILE_ERROR",
+                    "message": f"汇编代码编译失败: {error_msg}"
+                }
 
-            # 2. 创建 DOSBox 配置文件，启用 trace
+            # 2. 创建 DOSBox 配置文件，启用trace
             config_file = asm_file.replace('.asm', '.conf')
             with open(config_file, 'w') as f:
                 f.write(f"""[cpu]
@@ -145,37 +151,60 @@ core=normal
 cycles=max
 
 [autoexec]
-# Enable trace logging
-TRACE_ENABLE {trace_file}
-# Mount and run
 MOUNT C: {os.path.dirname(com_file)}
 C:
+TRACE_ENABLE {trace_file}
 {os.path.basename(com_file)}
-# Disable trace and exit
 TRACE_DISABLE
 EXIT
 """)
 
-            # 3. 调用 DOSBox
+            # 3. 调用 DOSBox（目前使用标准输出，未来可以改为trace文件）
             dosbox_cmd = f"{self.dosbox_path} -conf {config_file} -noconsole"
-            result = subprocess.run(dosbox_cmd, shell=True, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                dosbox_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
 
-            # 4. 读取 trace 文件
+            # 4. 检查是否有trace文件（如果DOSBox支持trace输出）
             if os.path.exists(trace_file):
-                with open(trace_file, 'r') as f:
-                    trace_data = json.load(f)
-                print(f"[CodeExecutor] 成功执行并获取 trace: {len(trace_data)} 步")
-                return trace_data
+                try:
+                    with open(trace_file, 'r') as f:
+                        trace_data = json.load(f)
+                    print(f"[CodeExecutor] 成功执行并获取 trace: {len(trace_data)} 步")
+                    return trace_data, None
+                except json.JSONDecodeError as e:
+                    print(f"[CodeExecutor] Trace 文件解析失败: {e}")
+                    return None, {
+                        "type": "TRACE_PARSE_ERROR",
+                        "message": "执行trace数据解析失败"
+                    }
             else:
+                # 如果没有trace文件，使用模拟数据（临时方案）
                 print(f"[CodeExecutor] Trace 文件不存在，使用模拟数据")
-                return self._get_mock_trace()
+                return self._get_mock_trace(), None
 
         except subprocess.TimeoutExpired:
             print(f"[CodeExecutor] 执行超时")
-            return self._get_mock_trace()
+            return None, {
+                "type": "TIMEOUT",
+                "message": "代码执行超时（可能存在无限循环）"
+            }
+        except FileNotFoundError:
+            print(f"[CodeExecutor] DOSBox 或 NASM 未找到")
+            return None, {
+                "type": "TOOL_NOT_FOUND",
+                "message": "执行环境未配置（缺少DOSBox或NASM）"
+            }
         except Exception as e:
             print(f"[CodeExecutor] 执行异常: {e}")
-            return self._get_mock_trace()
+            return None, {
+                "type": "RUNTIME_ERROR",
+                "message": f"运行时错误: {str(e)}"
+            }
 
     def _get_mock_trace(self) -> list:
         """返回模拟的 trace 数据（用于测试）"""

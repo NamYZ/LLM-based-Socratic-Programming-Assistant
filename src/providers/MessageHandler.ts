@@ -1,3 +1,4 @@
+// 处理业务逻辑 - 调用后端 API
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { FileReferenceParser } from '../fileReferenceParser';
