@@ -7,6 +7,7 @@ import { FileReferenceHandler } from './FileReferenceHandler';
 import { ConfigDatabaseManager } from './ConfigDatabaseManager';
 import { MessageHandler } from './MessageHandler';
 import { WebviewContentProvider } from './WebviewContentProvider';
+import { BackendManager } from './BackendManager';
 import { CodeContext } from '../types';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -22,7 +23,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private webviewContentProvider: WebviewContentProvider;
 
   // 初始化 ChatViewProvider
-  constructor(private readonly _extensionContext: vscode.ExtensionContext) {
+  constructor(
+    private readonly _extensionContext: vscode.ExtensionContext,
+    private readonly backendManager: BackendManager
+  ) {
     this.sessionExporter = new SessionExporter();
     this.fileReferenceHandler = new FileReferenceHandler();
     this.configDbManager = new ConfigDatabaseManager();
@@ -40,7 +44,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [
-        vscode.Uri.file(this._extensionContext.extensionPath + '/src/webview')
+        vscode.Uri.joinPath(vscode.Uri.file(this._extensionContext.extensionPath), 'media')
       ]
     };
 
@@ -58,8 +62,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   
   // 处理来自 webview.js 的消息（不同类型的消息）
   private async _handleMessage(message: any) {
-    const API_BASE = 'http://localhost:5500';
-
     switch (message.type) {
       case 'pickFileReference':
         await this.fileReferenceHandler.pickFileReferences(
@@ -68,6 +70,39 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         );
         break;
 
+      case 'stopStreaming':
+        this.messageHandler.stopCurrentStream();
+        break;
+
+      case 'addCodeContext':
+        if (message.data) {
+          this._manualCodeContexts.push(message.data);
+          vscode.window.showInformationMessage(`已添加代码到上下文: ${message.data.fileName}`);
+        }
+        break;
+
+      case 'closePanel':
+        if (this._view) {
+          vscode.commands.executeCommand('workbench.action.closeSidebar');
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    if (
+      message.type === 'pickFileReference' ||
+      message.type === 'stopStreaming' ||
+      message.type === 'addCodeContext' ||
+      message.type === 'closePanel'
+    ) {
+      return;
+    }
+
+    const API_BASE = await this.backendManager.ensureBackendRunning();
+
+    switch (message.type) {
       case 'saveSettings':
         try {
           const response = await fetch(`${API_BASE}/api/settings`, {
@@ -114,10 +149,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       // 分发 sendMessage 消息到 MessageHandler 文件处理
       case 'sendMessage':
         await this.messageHandler.handleSendMessage(message, this._view, API_BASE);
-        break;
-
-      case 'stopStreaming':
-        this.messageHandler.stopCurrentStream();
         break;
 
       case 'loadSessions':
@@ -369,19 +400,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           }
         } catch (error: any) {
           vscode.window.showErrorMessage(`删除配置失败: ${error.message}`);
-        }
-        break;
-
-      case 'addCodeContext':
-        if (message.data) {
-          this._manualCodeContexts.push(message.data);
-          vscode.window.showInformationMessage(`已添加代码到上下文: ${message.data.fileName}`);
-        }
-        break;
-
-      case 'closePanel':
-        if (this._view) {
-          vscode.commands.executeCommand('workbench.action.closeSidebar');
         }
         break;
     }

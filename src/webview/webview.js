@@ -268,7 +268,7 @@ let streamingRenderFrameId = null;
 // Assembly Guide 状态
 let manualHintMode = false;
 let currentHintLevel = 1;
-const API_BASE = 'http://localhost:5500';
+const API_BASE = 'http://127.0.0.1:5500';
 
 // 模型参数状态
 let modelParams = {

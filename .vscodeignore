@@ -9,3 +9,37 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+node_modules/**/.bin/**
+
+# 排除 Python 源码（生产模式不需要）
+backend/**
+
+# 排除 Python 缓存和环境
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/**
+**/.mypy_cache/**
+**/venv/**
+**/.venv/**
+**/.env
+
+# 排除打包临时文件
+build/**
+dist/**
+*.spec
+build-backend-mac.sh
+build-backend-win.bat
+
+# 排除其他文件
+.git/**
+.DS_Store
+*.vsix
+pyproject.toml
+requirements.txt
+uv.lock
+start-backend.sh
+start-backend.bat
+
+# 重要：包含打包好的后端可执行文件
+!backend-bin/**

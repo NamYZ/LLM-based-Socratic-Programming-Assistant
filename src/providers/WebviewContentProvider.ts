@@ -8,8 +8,7 @@ export class WebviewContentProvider {
   getHtmlForWebview(webview: vscode.Webview): string {
     const htmlPath = path.join(
       this.extensionContext.extensionPath,
-      'src',
-      'webview',
+      'media',
       'index.html'
     );
 
@@ -18,28 +17,33 @@ export class WebviewContentProvider {
     // 获取 CSS 和 JS 文件的 URI
     const cssUri = webview.asWebviewUri(
       vscode.Uri.file(
-        path.join(this.extensionContext.extensionPath, 'src', 'webview', 'webview.css')
+        path.join(this.extensionContext.extensionPath, 'media', 'webview.css')
       )
     );
     const jsUri = webview.asWebviewUri(
       vscode.Uri.file(
-        path.join(this.extensionContext.extensionPath, 'src', 'webview', 'webview.js')
+        path.join(this.extensionContext.extensionPath, 'media', 'webview.js')
       )
     );
 
     // 生成 nonce 用于 CSP
     const nonce = this.getNonce();
 
+    // 构建正确的 CSP 策略
+    const cspContent = [
+      `default-src 'none'`,
+      `img-src ${webview.cspSource} data: https:`,
+      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `script-src 'nonce-${nonce}'`,
+      `connect-src http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*`,
+      `font-src ${webview.cspSource}`
+    ].join('; ') + ';';
+
     // 替换占位符
     html = html.replace(/\$\{nonce\}/g, nonce);
+    html = html.replace('{{CSP_CONTENT}}', cspContent);
     html = html.replace('./webview.css', cssUri.toString());
     html = html.replace('./webview.js', jsUri.toString());
-
-    // 更新 CSP 策略以允许 webview URI 和 CDN
-    html = html.replace(
-      /content="default-src 'none'; style-src [^"]+"/,
-      `content="default-src 'none'; img-src ${webview.cspSource} data: https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource} https://cdn.jsdelivr.net; connect-src http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;"`
-    );
 
     return html;
   }

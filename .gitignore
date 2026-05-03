@@ -14,14 +14,6 @@ env/
 venv/
 .env
 
-# C/C++
-*.o
-*.obj
-*.exe
-*.dll
-*.a
-*.lib
-
 # Build artifacts
 dist/
 build/
@@ -50,6 +42,4 @@ config.log
 
 # Project specific
 CLAUDE.md
-build_dosbox.sh
-find_modifications.sh
 .vscode-test.mjs

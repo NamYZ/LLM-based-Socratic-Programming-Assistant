@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="{{CSP_CONTENT}}" data-csp-allow-modals="true">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>汇编语言编程助手</title>
+  <link rel="stylesheet" href="./webview.css">
+</head>
+<body>
+<div id="app">
+  <!-- 聊天页面（默认显示 - view active） -->
+  <div class="view active" id="view-chat">
+    <!-- HEADER -->
+    <div class="chat-header">
+      <div class="header-title">汇编语言编程助手</div>
+      <!-- 3个功能按钮 -->
+      <div class="header-actions">
+        <button class="icon-btn" id="btn-new-chat" title="新建会话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-progress" title="任务进度">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-history" title="历史会话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-sampling-params" title="采样参数设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-profile" title="个人画像">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-settings" title="个人设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-close" title="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 消息对话区域（AI 对话内容显示在这里） -->
+    <div class="messages-area" id="messages-area">
+      <div class="empty-state" id="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h3>开始新对话</h3>
+        <p>向 AI 提问编程问题<br>支持答案式和引导式回答</p>
+      </div>
+    </div>
+
+    <!-- 打字输入框 -->
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrapper">
+          <!-- 代码上下文标识区域（在输入框内部顶部） -->
+          <div class="code-context-tags" id="code-context-tags"></div>
+          <textarea
+            class="input-box"
+            id="message-input"
+            placeholder="Ask a question about your code..."
+            rows="1"
+          ></textarea>
+          <!-- 底部控制栏 -->
+          <div class="input-controls-bottom">
+            <!-- 引用文件按钮 -->
+            <button class="attach-btn" id="attach-btn" title="引用文件">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <!-- 模式选择 -->
+            <div class="mode-select-wrap">
+              <button class="mode-select-btn" id="mode-select-btn" type="button">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+                </svg>
+                <span id="mode-label-text">答案式</span>
+                <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <div class="mode-select-panel" id="mode-select-panel">
+                <div class="mode-option" data-value="answer">
+                  <div class="mode-option-title">答案式</div>
+                  <div class="mode-option-desc">直接给出代码和答案</div>
+                </div>
+                <div class="mode-option" data-value="guided">
+                  <div class="mode-option-title">引导式</div>
+                  <div class="mode-option-desc">通过问题引导思考</div>
+                </div>
+                <div class="mode-option" data-value="assembly_guide">
+                  <div class="mode-option-title">需求引导 (Agent)</div>
+                  <div class="mode-option-desc">从需求逐步实现代码</div>
+                </div>
+                <div class="mode-option" data-value="assembly_check">
+                  <div class="mode-option-title">代码检查 (Agent)</div>
+                  <div class="mode-option-desc">引导发现代码错误</div>
+                </div>
+              </div>
+            </div>
+            <!-- 模型配置 -->
+            <div class="model-config-wrap">
+              <button class="model-config-btn" id="model-config-btn" type="button">
+                <span class="model-dot" id="model-dot"></span>
+                <span id="model-label-text">未配置</span>
+                <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <div class="model-config-panel" id="model-config-panel">
+                <!-- 配置选项将动态插入这里 -->
+              </div>
+            </div>
+            <!-- 右侧弹性空间 -->
+            <div class="controls-spacer"></div>
+            <!-- 发送/暂停按钮 -->
+            <button class="send-btn" id="send-btn" title="发送">
+              <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 19V5M12 5l-7 7M12 5l7 7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg class="stop-icon hidden" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 历史会话界面 -->
+  <div class="view" id="view-history">
+    <div class="view-header">
+      <button class="back-btn" id="history-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>返回</span>
+      </button>
+      <span class="view-title">历史会话</span>
+    </div>
+    <div class="history-list" id="history-list">
+      <div class="empty-history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round"/>
+        </svg>
+        <span>暂无历史会话</span>
+      </div>
+    </div>
+    <div class="history-footer">
+      <button class="clear-btn" id="clear-all-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+        <span>清空所有会话</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 任务进度页面 -->
+  <div class="view" id="view-progress">
+    <div class="view-header">
+      <button class="back-btn" id="progress-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>返回</span>
+      </button>
+      <span class="view-title">任务进度</span>
+    </div>
+
+    <!-- 任务进度可视化 -->
+    <div class="progress-view-body">
+      <div class="progress-container-full" id="progress-container-full">
+        <div class="progress-section">
+          <h3 class="section-title">当前进度</h3>
+          <div class="progress-header">
+            <span class="progress-text" id="progress-text-view">步骤 0/0</span>
+          </div>
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar" id="progress-bar-view" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <h3 class="section-title">任务步骤</h3>
+          <div class="progress-steps" id="progress-steps-view"></div>
+        </div>
+
+        <!-- 手动提示等级控制 -->
+        <div class="progress-section">
+          <h3 class="section-title">提示精度控制</h3>
+          <div class="hint-control-full" id="hint-control-full">
+            <div class="hint-control-header">
+              <span class="hint-label">当前等级: <span id="current-hint-level">1</span></span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="manual-hint-toggle-view">
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">手动调整</span>
+            </div>
+            <div class="hint-level-slider" id="hint-level-slider-view" style="display: none;">
+              <button class="hint-btn active" data-level="1">引导式 (1)</button>
+              <button class="hint-btn" data-level="2">适中 (2)</button>
+              <button class="hint-btn" data-level="3">明显 (3)</button>
+            </div>
+            <div class="hint-description">
+              <p><strong>引导式 (1)</strong>: 提问实现方向，引导思考使用哪些寄存器或指令类别</p>
+              <p><strong>适中 (2)</strong>: 提问具体指令或操作，可以提示指令名称</p>
+              <p><strong>明显 (3)</strong>: 提问关键细节，引导关注操作数、寻址方式等</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-empty" id="progress-empty-view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3>暂无任务进度</h3>
+          <p>在 Assembly Guide 模式下开始任务后<br>这里会显示任务进度和步骤</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 采样参数设置界面 -->
+  <div class="view" id="view-sampling-params">
+    <div class="view-header">
+      <button class="back-btn" id="sampling-params-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>返回</span>
+      </button>
+      <span class="view-title">采样参数设置</span>
+    </div>
+    <div class="sampling-params-body">
+      <!-- Temperature 参数 -->
+      <div class="param-section">
+        <div class="param-header">
+          <div class="param-info">
+            <div class="param-label">Temperature</div>
+            <div class="param-description">控制输出的随机性和创造性</div>
+          </div>
+          <div class="param-controls">
+            <span class="param-value" id="temperature-value">0.7</span>
+            <label class="param-toggle">
+              <input type="checkbox" id="temperature-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="param-slider-wrap">
+          <input type="range" class="param-slider" id="temperature-slider" min="0" max="1" step="0.1" value="0.7">
+        </div>
+      </div>
+
+      <!-- Top P 参数 -->
+      <div class="param-section">
+        <div class="param-header">
+          <div class="param-info">
+            <div class="param-label">Top P</div>
+            <div class="param-description">核采样，控制词汇选择的多样性</div>
+          </div>
+          <div class="param-controls">
+            <span class="param-value" id="top-p-value">1</span>
+            <label class="param-toggle">
+              <input type="checkbox" id="top-p-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="param-slider-wrap">
+          <input type="range" class="param-slider" id="top-p-slider" min="0" max="1" step="0.05" value="1">
+        </div>
+      </div>
+
+      <!-- Frequency Penalty 参数 -->
+      <div class="param-section">
+        <div class="param-header">
+          <div class="param-info">
+            <div class="param-label">Frequency Penalty</div>
+            <div class="param-description">频率惩罚，减少重复词汇的出现</div>
+          </div>
+          <div class="param-controls">
+            <span class="param-value" id="frequency-penalty-value">0</span>
+            <label class="param-toggle">
+              <input type="checkbox" id="frequency-penalty-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="param-slider-wrap">
+          <input type="range" class="param-slider" id="frequency-penalty-slider" min="-2" max="2" step="0.1" value="0">
+        </div>
+      </div>
+
+      <!-- Presence Penalty 参数 -->
+      <div class="param-section">
+        <div class="param-header">
+          <div class="param-info">
+            <div class="param-label">Presence Penalty</div>
+            <div class="param-description">存在惩罚，鼓励讨论新话题</div>
+          </div>
+          <div class="param-controls">
+            <span class="param-value" id="presence-penalty-value">0</span>
+            <label class="param-toggle">
+              <input type="checkbox" id="presence-penalty-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="param-slider-wrap">
+          <input type="range" class="param-slider" id="presence-penalty-slider" min="-2" max="2" step="0.1" value="0">
+        </div>
+      </div>
+
+      <!-- 采样参数预设区 -->
+      <div class="param-presets">
+        <div class="presets-title">快速预设</div>
+        <div class="presets-buttons">
+          <button class="preset-btn" id="preset-answer">答案式</button>
+          <button class="preset-btn" id="preset-guided">引导式</button>
+          <button class="preset-btn preset-btn-reset" id="preset-reset">恢复默认设置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置界面（配置模型API-KEY和BASE-URL） -->
+  <div class="view" id="view-settings">
+    <div class="view-header">
+      <button class="back-btn" id="settings-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>返回</span>
+      </button>
+      <span class="view-title">个人设置</span>
+    </div>
+    <div class="settings-body">
+      <!-- 已保存的配置列表 -->
+      <div class="settings-section">
+        <div class="settings-section-title">已保存的配置</div>
+        <div class="config-list" id="config-list">
+          <div class="empty-config">暂无配置</div>
+        </div>
+      </div>
+
+      <!-- 添加新配置 -->
+      <div class="settings-section">
+        <div class="settings-section-title">添加新配置</div>
+        <div class="form-group">
+          <label class="form-label">配置名称</label>
+          <input type="text" class="form-input" id="config-name-input" placeholder="例如：GPT-4 配置">
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input type="password" class="form-input" id="api-key-input" placeholder="sk-... 或其他格式">
+        </div>
+        <div class="form-group">
+          <label class="form-label">模型名称</label>
+          <input type="text" class="form-input" id="model-input" placeholder="gpt-4o / claude-3-5-sonnet / qwen3-max">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provider</label>
+          <input type="text" class="form-input" id="provider-input" placeholder="openai / anthropic / qwen" value="qwen">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Base URL</label>
+          <input type="text" class="form-input" id="base-url-input" placeholder="留空走官方默认地址；自定义兼容接口时填写">
+          <span class="form-hint">仅在 OpenAI-compatible 或自定义网关场景需要填写</span>
+        </div>
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input type="checkbox" id="set-active-checkbox" checked>
+            <span>立即激活此配置</span>
+          </label>
+        </div>
+      </div>
+      <button class="save-settings-btn" id="save-settings-btn">添加配置</button>
+    </div>
+  </div>
+
+  <!-- 编辑配置界面（新页面） -->
+  <div class="view" id="view-edit-config">
+    <div class="view-header">
+      <button class="back-btn" id="edit-config-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>返回</span>
+      </button>
+      <span class="view-title">修改配置</span>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <div class="settings-section-title">配置信息</div>
+        <div class="form-group">
+          <label class="form-label">配置名称</label>
+          <input type="text" class="form-input" id="edit-config-name-input" placeholder="例如：GPT-4 配置">
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input type="text" class="form-input" id="edit-api-key-input" placeholder="sk-... 或其他格式">
+        </div>
+        <div class="form-group">
+          <label class="form-label">模型名称</label>
+          <input type="text" class="form-input" id="edit-model-input" placeholder="gpt-4o / claude-3-5-sonnet / qwen3-max">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provider</label>
+          <input type="text" class="form-input" id="edit-provider-input" placeholder="openai / anthropic / qwen">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Base URL</label>
+          <input type="text" class="form-input" id="edit-base-url-input" placeholder="留空走官方默认地址；自定义兼容接口时填写">
+          <span class="form-hint">仅在 OpenAI-compatible 或自定义网关场景需要填写</span>
+        </div>
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input type="checkbox" id="edit-set-active-checkbox">
+            <span>设为当前激活配置</span>
+          </label>
+        </div>
+      </div>
+      <button class="save-settings-btn" id="save-edit-config-btn">保存修改</button>
+    </div>
+  </div>
+
+  <!-- 个人画像视图 -->
+  <div class="view" id="view-profile">
+    <div class="view-header">
+      <button class="back-btn" id="profile-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>返回</span>
+      </button>
+      <span class="view-title">个人学习画像</span>
+    </div>
+    <div class="profile-content">
+      <!-- 学习统计 -->
+      <div class="profile-stats">
+        <div class="stat-card">
+          <div class="stat-value" id="total-sessions">0</div>
+          <div class="stat-label">总学习次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="completed-tasks">0</div>
+          <div class="stat-label">完成任务数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="total-errors">0</div>
+          <div class="stat-label">总错误数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avg-hint-level">1.0</div>
+          <div class="stat-label">平均提示等级</div>
+        </div>
+      </div>
+
+      <!-- 知识领域 -->
+      <div class="knowledge-areas">
+        <div class="area-section">
+          <h4>擅长领域</h4>
+          <div id="strong-areas" class="area-tags">
+            <span class="area-tag">暂无数据</span>
+          </div>
+        </div>
+        <div class="area-section">
+          <h4>薄弱环节</h4>
+          <div id="weak-areas" class="area-tags">
+            <span class="area-tag weak">暂无数据</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 错题库 -->
+      <div class="error-bank-section">
+        <h4>错题库</h4>
+        <div id="error-bank-list" class="error-list">
+          <div class="empty-message">暂无错误记录</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FILE POPUP -->
+<div class="file-popup" id="file-popup"></div>
+
+<!-- 提示信息 -->
+<div class="notification" id="notification"></div>
+
+<script nonce="${nonce}" src="./webview.js"></script>
+
+</body>
+</html>

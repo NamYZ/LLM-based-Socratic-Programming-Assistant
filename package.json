@@ -3,7 +3,8 @@
   "displayName": "AI Coding Tool",
   "description": "AI-powered coding assistant with guided and answer modes",
   "version": "0.0.1",
-  "publisher": "your-publisher-name",
+  "publisher": "NamYZ",
+  "repository": "none",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -82,11 +83,14 @@
     "sql.js": "^1.13.0"
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run check-backend",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "build:backend-mac": "bash build-backend-mac.sh",
+    "build:backend-win": "build-backend-win.bat",
+    "check-backend": "node -e \"const fs=require('fs');const p=process.platform;const f=p==='win32'?'backend-bin/backend.exe':'backend-bin/backend';if(!fs.existsSync(f)){console.error('\\n❌ 错误：未找到后端可执行文件！\\n请先运行打包脚本：\\n  Mac: npm run build:backend-mac\\n  Windows: npm run build:backend-win\\n');process.exit(1);}console.log('✅ 后端可执行文件检查通过');\""
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ChatViewProvider } from './providers/ChatViewProvider';
+import { BackendManager } from './providers/BackendManager';
 import { CodeContext } from './types';
 
 // VS Code 插件的 “总开关 / 入口”。
@@ -10,8 +11,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   console.log('AI Coding Tool is now active!');
 
+  const backendManager = new BackendManager(context);
+  context.subscriptions.push(backendManager);
+  void backendManager.ensureBackendRunning().catch((error: any) => {
+    console.warn(`[AI Coding Tool] 后端预启动失败: ${error.message}`);
+  });
+
   // 创建 ChatViewProvider 实例，注册 Webview 界面和命令
-  const provider = new ChatViewProvider(context);
+  const provider = new ChatViewProvider(context, backendManager);
 
   // 告诉 VS Code 注册 Webview 界面
   context.subscriptions.push(

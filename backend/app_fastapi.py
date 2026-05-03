@@ -1,6 +1,5 @@
 """
-使用 FastAPI 构建的后端服务, 提供: 模型配置管理 - 对话会话管理 - 聊天接口
-入口层: app_fastapi.py
+使用 FastAPI 构建的后端服务 - 提供: 模型配置管理 - 对话会话管理 - 聊天接口 -- 入口层: app_fastapi.py
 """
 
 from fastapi import FastAPI
@@ -37,6 +36,11 @@ app.include_router(assembly_router, tags=["Assembly Agent"])
 async def index():
     """访问首页时返回一个简单的 JSON, 表明后端服务正在运行"""
     return {"message": "AI Coding Tool Backend API", "status": "running"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 if __name__ == '__main__':
