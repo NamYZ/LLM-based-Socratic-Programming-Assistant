@@ -1,16 +1,17 @@
 """
-会话管理路由
-处理对话会话的增删改查操作
+会话管理路由：处理对话会话的增删改查操作
 """
+
 from fastapi import APIRouter
 import sqlite3
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from database import DB_PATH, clear_session_history
 
 router = APIRouter()
-
 
 @router.get("/api/sessions")
 async def list_sessions():

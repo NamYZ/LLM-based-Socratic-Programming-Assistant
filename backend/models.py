@@ -31,5 +31,4 @@ class ChatRequest(BaseModel):
     mode: str = 'answer'
     samplingParams: Optional[dict] = None
     current_code: Optional[str] = None  # 当前编辑器代码
-    use_agent: bool = False  # 是否使用 Agent 模式
     

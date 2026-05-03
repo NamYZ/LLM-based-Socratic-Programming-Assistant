@@ -85,7 +85,7 @@ export class MessageHandler {
       const messageWithContext = finalMessage + contextParts.join('');
 
       // 5. Agent 模式由前端模式选择显式控制
-      const useAgent = message.data.mode === 'agent';
+      const useAgent = ['assembly_guide', 'assembly_check'].includes(message.data.mode);
 
       const response = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',

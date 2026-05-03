@@ -175,6 +175,50 @@ def init_db():
         )
     ''')
 
+    # 错题库表 - 跨会话追踪用户的错误模式
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS error_bank (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT DEFAULT 'default_user',
+            error_category TEXT NOT NULL,
+            error_description TEXT,
+            knowledge_point TEXT,
+            occurrence_count INTEGER DEFAULT 1,
+            first_seen TEXT,
+            last_seen TEXT,
+            related_code TEXT,
+            resolution_status TEXT DEFAULT 'unresolved',
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP
+        )
+    ''')
+
+    # 学习报告表 - 存储生成的学习报告
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS learning_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            report_data TEXT NOT NULL,
+            generated_at TEXT,
+            FOREIGN KEY (session_id) REFERENCES sessions_vscode(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # 用户画像表 - 聚合学习统计数据
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            user_id TEXT PRIMARY KEY DEFAULT 'default_user',
+            total_sessions INTEGER DEFAULT 0,
+            completed_tasks INTEGER DEFAULT 0,
+            total_errors INTEGER DEFAULT 0,
+            avg_hint_level REAL DEFAULT 1.0,
+            strong_areas TEXT DEFAULT '[]',
+            weak_areas TEXT DEFAULT '[]',
+            last_updated TEXT,
+            created_at TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
 

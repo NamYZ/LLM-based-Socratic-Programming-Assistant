@@ -9,13 +9,10 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 导入自定义模块
 from models import SettingsRequest, ConfigRequest
 from database import DB_PATH, get_api_key, get_local_time
 
-
 router = APIRouter()
-
 
 @router.get("/api/settings")
 async def get_settings():

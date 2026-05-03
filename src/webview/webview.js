@@ -265,6 +265,11 @@ let editingConfigId = null;
 let activeStreamingContentEl = null;
 let streamingRenderFrameId = null;
 
+// Assembly Guide 状态
+let manualHintMode = false;
+let currentHintLevel = 1;
+const API_BASE = 'http://localhost:5500';
+
 // 模型参数状态
 let modelParams = {
   temperature: 0.7,
@@ -293,6 +298,7 @@ const modeLabelText = document.getElementById('mode-label-text');
 
 // 新建聊天 - 历史记录 - 采样参数 - 设置 - 关闭 五个按钮
 const btnNewChat = document.getElementById('btn-new-chat');
+const btnProgress = document.getElementById('btn-progress');
 const btnHistory = document.getElementById('btn-history');
 const btnSamplingParams = document.getElementById('btn-sampling-params');
 const btnSettings = document.getElementById('btn-settings');
@@ -548,15 +554,19 @@ modeSelectBtn.addEventListener('click', (e) => {
 
 // 模式选项点击逻辑
 modeSelectPanel.addEventListener('click', (e) => {
-  if (e.target.classList.contains('mode-option')) {
-    const value = e.target.dataset.value;
+  // 支持点击整个mode-option或其子元素
+  const modeOption = e.target.closest('.mode-option');
+  if (modeOption) {
+    const value = modeOption.dataset.value;
     let text = '答案式';
     if (value === 'answer') {
       text = '答案式';
     } else if (value === 'guided') {
       text = '引导式';
-    } else if (value === 'agent') {
-      text = 'Agent模式';
+    } else if (value === 'assembly_guide') {
+      text = '需求引导';
+    } else if (value === 'assembly_check') {
+      text = '代码检查';
     }
     currentMode = value;
     modeLabelText.textContent = text;
@@ -565,12 +575,19 @@ modeSelectPanel.addEventListener('click', (e) => {
     modeSelectPanel.querySelectorAll('.mode-option').forEach(opt => {
       opt.classList.remove('active');
     });
-    e.target.classList.add('active');
+    modeOption.classList.add('active');
 
     modeSelectPanel.classList.remove('show');
     const modeIcon = modeSelectBtn.querySelector('.dropdown-icon');
     modeIcon.style.transform = 'rotate(0deg)';
     console.log('[Webview] Mode changed to:', currentMode);
+
+    // 如果切换到 assembly_guide 模式且有当前会话，更新进度
+    if (currentMode === 'assembly_guide' && currentSessionId) {
+      updateProgress(currentSessionId);
+    } else {
+      document.getElementById('progress-container').style.display = 'none';
+    }
   }
 });
 
@@ -582,6 +599,13 @@ btnNewChat.addEventListener('click', () => {
   renderCodeContextTags();
   clearMessages();
   messageInput.focus();
+});
+
+// 任务进度按钮逻辑 - 切换到任务进度视图
+btnProgress.addEventListener('click', () => {
+  console.log('[Webview] Progress button clicked');
+  switchView('progress');
+  updateProgressView();
 });
 
 // 历史记录按钮逻辑 - 切换到历史记录视图，加载历史会话数据
@@ -625,6 +649,11 @@ document.getElementById('sampling-params-back-btn').addEventListener('click', ()
 
 document.getElementById('settings-back-btn').addEventListener('click', () => {
   console.log('[Webview] Settings back button clicked');
+  switchView('chat');
+});
+
+document.getElementById('progress-back-btn').addEventListener('click', () => {
+  console.log('[Webview] Progress back button clicked');
   switchView('chat');
 });
 
@@ -1276,24 +1305,21 @@ function handleChatChunk(data) {
   if (data.status) {
     const lastMsg = getActiveStreamingContentEl();
     if (lastMsg) {
+      // 将状态信息显示在正常的消息框中，而不是特殊的状态指示器
+      let statusText = data.status;
+
+      // 根据状态内容判断类型
       if (data.status === 'thinking') {
-        // 显示思考状态
-        lastMsg.dataset.rawContent = '';
-        lastMsg.innerHTML = `
-          <div class="status-indicator thinking">
-            <div class="status-spinner"></div>
-            <span class="status-text">正在思考...</span>
-          </div>
-        `;
+        statusText = '正在思考...';
       } else if (data.status === 'generating') {
-        // 显示生成状态
-        lastMsg.innerHTML = `
-          <div class="status-indicator generating">
-            <div class="status-spinner"></div>
-            <span class="status-text">正在生成回复...</span>
-          </div>
-        `;
+        statusText = '正在生成回复...';
       }
+      // 其他状态直接显示原文（如 "🔄 初始化会话状态..."）
+
+      // 使用与正式回答相同的样式显示状态消息
+      lastMsg.dataset.rawContent = statusText;
+      lastMsg.classList.add('streaming');
+      lastMsg.innerHTML = parseMarkdown(statusText);
     }
     return;
   }
@@ -1303,19 +1329,24 @@ function handleChatChunk(data) {
     // 找到当前 AI 消息的内容元素
     const lastMsg = getActiveStreamingContentEl();
     if (lastMsg) {
-      // 移除状态指示器（如果存在）
-      const statusIndicator = lastMsg.querySelector('.status-indicator');
-      if (statusIndicator) {
-        statusIndicator.remove();
-      }
-
       // 累积原始文本内容
       if (!lastMsg.dataset.rawContent) {
         lastMsg.dataset.rawContent = '';
       }
-      // 如果是占位符文本（分析状态或思考状态），清空后再追加新内容
-      if (lastMsg.dataset.rawContent === '正在读取当前代码并进行分析...' ||
-          lastMsg.dataset.rawContent === '正在思考...') {
+      // 如果之前是状态消息，清空后再追加新内容
+      const previousContent = lastMsg.dataset.rawContent;
+      if (previousContent && (
+        previousContent.includes('正在思考') ||
+        previousContent.includes('正在生成') ||
+        previousContent.includes('🔄') ||
+        previousContent.includes('🤖') ||
+        previousContent.includes('💭') ||
+        previousContent.includes('🛠️') ||
+        previousContent.includes('✅') ||
+        previousContent.includes('⚠️') ||
+        previousContent.includes('📌') ||
+        previousContent.includes('📝')
+      )) {
         lastMsg.dataset.rawContent = '';
       }
       lastMsg.dataset.rawContent += data.content;
@@ -1334,6 +1365,17 @@ function handleChatChunk(data) {
     if (data.session_id) {
       currentSessionId = data.session_id;
     }
+
+    // 如果是 assembly_guide 模式，更新进度
+    if (currentMode === 'assembly_guide' && currentSessionId) {
+      updateProgress(currentSessionId);
+    }
+
+    // 检查是否任务完成，显示导出按钮
+    if (data.completion_status === 'completed' && currentSessionId) {
+      showExportButton(currentSessionId);
+    }
+
     messageInput.focus();
   }
   // 处理错误情况，显示错误通知并重置状态
@@ -1486,7 +1528,7 @@ function clearMessages() {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
     <h3>开始新对话</h3>
-    <p>向 AI 提问编程问题<br>支持 Ask 模式 & Agent 模式</p>
+    <p>向 AI 提问编程问题<br>支持多种教学模式</p>
   `;
 
   // 将 空状态提示 插入 消息展示区域
@@ -1525,14 +1567,29 @@ function renderSessions(sessions) {
     return;
   }
 
-  historyList.innerHTML = sessions.map(s => `
+  historyList.innerHTML = sessions.map(s => {
+    // 确定模式显示文本和样式类
+    let modeText = '答案式';
+    let modeClass = 'mode-answer';
+    if (s.mode === 'guided') {
+      modeText = '引导式';
+      modeClass = 'mode-guided';
+    } else if (s.mode === 'assembly_guide') {
+      modeText = '需求引导';
+      modeClass = 'mode-assembly-guide';
+    } else if (s.mode === 'assembly_check') {
+      modeText = '代码检查';
+      modeClass = 'mode-assembly-check';
+    }
+
+    return `
     <div class="history-item" data-session-id="${s.id}">
       <div class="history-item-main">
         <div class="history-item-header">
           <span class="history-item-title">${s.title}</span>
         </div>
         <div class="history-item-meta">
-          <span class="history-item-mode ${s.mode === 'guided' ? 'mode-guided' : (s.mode === 'agent' ? 'mode-agent' : 'mode-answer')}">${s.mode === 'guided' ? '引导式' : (s.mode === 'agent' ? 'Agent模式' : '答案式')}</span>
+          <span class="history-item-mode ${modeClass}">${modeText}</span>
           <span class="history-item-count">${s.msg_count} 条消息</span>
           <span class="history-item-time">${formatTimeAgo(s.updated_at)}</span>
         </div>
@@ -1552,7 +1609,8 @@ function renderSessions(sessions) {
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   // 绑定点击事件
   historyList.querySelectorAll('.history-item').forEach(item => {
@@ -1594,8 +1652,10 @@ function loadSessionIntoChat(data) {
   let modeText = '答案式';
   if (currentMode === 'guided') {
     modeText = '引导式';
-  } else if (currentMode === 'agent') {
-    modeText = 'Agent模式';
+  } else if (currentMode === 'assembly_guide') {
+    modeText = '需求引导';
+  } else if (currentMode === 'assembly_check') {
+    modeText = '代码检查';
   }
   modeLabelText.textContent = modeText;
 
@@ -1970,5 +2030,331 @@ function applyPreset(preset) {
   updateParamUI('frequency-penalty', preset.frequencyPenalty, modelParams.frequencyPenaltyEnabled);
   updateParamUI('presence-penalty', preset.presencePenalty, modelParams.presencePenaltyEnabled);
 }
+
+// ===== ASSEMBLY GUIDE 功能 =====
+
+// 更新进度显示
+async function updateProgress(sessionId) {
+  if (!sessionId || currentMode !== 'assembly_guide') {
+    document.getElementById('progress-container').style.display = 'none';
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/assembly/progress/${sessionId}`);
+    const progressData = await response.json();
+
+    const container = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const stepsContainer = document.getElementById('progress-steps');
+
+    if (!progressData || progressData.total_steps === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    const percentage = progressData.total_steps > 0
+      ? (progressData.current_step / progressData.total_steps) * 100
+      : 0;
+    progressBar.style.width = percentage + '%';
+    progressText.textContent = `步骤 ${progressData.current_step}/${progressData.total_steps}`;
+
+    // 渲染步骤徽章
+    stepsContainer.innerHTML = progressData.task_steps.map((step, idx) => {
+      const status = idx < progressData.current_step ? 'completed' :
+                    idx === progressData.current_step ? 'current' : '';
+      return `<div class="step-badge ${status}">${idx + 1}. ${step}</div>`;
+    }).join('');
+
+    // 更新提示等级显示
+    currentHintLevel = progressData.hint_level;
+    manualHintMode = progressData.manual_mode;
+    document.getElementById('manual-hint-toggle').checked = manualHintMode;
+    document.getElementById('hint-level-slider').style.display = manualHintMode ? 'flex' : 'none';
+
+    // 更新提示按钮状态
+    document.querySelectorAll('.hint-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.level) === currentHintLevel);
+    });
+
+  } catch (error) {
+    console.error('获取进度失败:', error);
+  }
+}
+
+// 更新进度页面视图
+async function updateProgressView() {
+  if (!currentSessionId || currentMode !== 'assembly_guide') {
+    document.getElementById('progress-empty-view').style.display = 'flex';
+    document.getElementById('progress-container-full').querySelector('.progress-section').style.display = 'none';
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/assembly/progress/${currentSessionId}`);
+    const progressData = await response.json();
+
+    const emptyView = document.getElementById('progress-empty-view');
+    const progressSections = document.querySelectorAll('#progress-container-full .progress-section');
+    const progressBarView = document.getElementById('progress-bar-view');
+    const progressTextView = document.getElementById('progress-text-view');
+    const stepsContainerView = document.getElementById('progress-steps-view');
+    const currentHintLevelSpan = document.getElementById('current-hint-level');
+
+    if (!progressData || progressData.total_steps === 0) {
+      emptyView.style.display = 'flex';
+      progressSections.forEach(section => section.style.display = 'none');
+      return;
+    }
+
+    emptyView.style.display = 'none';
+    progressSections.forEach(section => section.style.display = 'block');
+
+    const percentage = progressData.total_steps > 0
+      ? (progressData.current_step / progressData.total_steps) * 100
+      : 0;
+    progressBarView.style.width = percentage + '%';
+    progressTextView.textContent = `步骤 ${progressData.current_step}/${progressData.total_steps}`;
+
+    // 渲染步骤徽章
+    stepsContainerView.innerHTML = progressData.task_steps.map((step, idx) => {
+      const status = idx < progressData.current_step ? 'completed' :
+                    idx === progressData.current_step ? 'current' : '';
+      return `<div class="step-badge ${status}">${idx + 1}. ${step}</div>`;
+    }).join('');
+
+    // 更新提示等级显示
+    currentHintLevel = progressData.hint_level;
+    manualHintMode = progressData.manual_mode;
+    currentHintLevelSpan.textContent = currentHintLevel;
+    document.getElementById('manual-hint-toggle-view').checked = manualHintMode;
+    document.getElementById('hint-level-slider-view').style.display = manualHintMode ? 'flex' : 'none';
+
+    // 更新提示按钮状态
+    document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.level) === currentHintLevel);
+    });
+
+  } catch (error) {
+    console.error('获取进度失败:', error);
+  }
+}
+
+// 手动提示模式切换（进度页面）
+document.getElementById('manual-hint-toggle-view').addEventListener('change', async (e) => {
+  manualHintMode = e.target.checked;
+  document.getElementById('hint-level-slider-view').style.display = manualHintMode ? 'flex' : 'none';
+
+  if (!currentSessionId) return;
+
+  try {
+    await fetch(`${API_BASE}/api/assembly/hint-level`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        session_id: currentSessionId,
+        hint_level: currentHintLevel,
+        manual_mode: manualHintMode
+      })
+    });
+  } catch (error) {
+    console.error('设置提示模式失败:', error);
+  }
+});
+
+// 手动提示等级按钮（进度页面）
+document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!manualHintMode || !currentSessionId) return;
+
+    const level = parseInt(btn.dataset.level);
+    currentHintLevel = level;
+
+    document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(b => {
+      b.classList.remove('active');
+    });
+    btn.classList.add('active');
+    document.getElementById('current-hint-level').textContent = level;
+
+    try {
+      await fetch(`${API_BASE}/api/assembly/hint-level`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          session_id: currentSessionId,
+          hint_level: level,
+          manual_mode: true
+        })
+      });
+    } catch (error) {
+      console.error('设置提示等级失败:', error);
+    }
+  });
+});
+
+// 手动提示模式切换
+document.getElementById('manual-hint-toggle').addEventListener('change', async (e) => {
+  manualHintMode = e.target.checked;
+  document.getElementById('hint-level-slider').style.display = manualHintMode ? 'flex' : 'none';
+
+  if (!currentSessionId) return;
+
+  try {
+    await fetch(`${API_BASE}/api/assembly/hint-level`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        session_id: currentSessionId,
+        manual_mode: manualHintMode,
+        hint_level: currentHintLevel
+      })
+    });
+    showNotification(manualHintMode ? '已启用手动调整模式' : '已关闭手动调整模式');
+  } catch (error) {
+    console.error('设置手动模式失败:', error);
+    showNotification('设置失败', 'error');
+  }
+});
+
+// 提示等级按钮点击
+document.querySelectorAll('.hint-btn').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    if (!manualHintMode || !currentSessionId) return;
+
+    currentHintLevel = parseInt(e.target.dataset.level);
+    document.querySelectorAll('.hint-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+
+    try {
+      await fetch(`${API_BASE}/api/assembly/hint-level`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          session_id: currentSessionId,
+          manual_mode: true,
+          hint_level: currentHintLevel
+        })
+      });
+      showNotification(`提示等级已设置为 ${currentHintLevel}`);
+    } catch (error) {
+      console.error('设置提示等级失败:', error);
+      showNotification('设置失败', 'error');
+    }
+  });
+});
+
+// 导出学习报告
+async function exportReport(sessionId, format = 'json') {
+  try {
+    const response = await fetch(`${API_BASE}/api/assembly/report/${sessionId}/export?format=${format}`);
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `learning_report_${sessionId}_${Date.now()}.${format}`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    showNotification('报告已导出');
+  } catch (error) {
+    console.error('导出报告失败:', error);
+    showNotification('导出失败', 'error');
+  }
+}
+
+// 显示导出按钮
+function showExportButton(sessionId) {
+  // 在消息区域添加导出按钮
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'export-report-btn';
+  exportBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+    </svg>
+    导出学习报告
+  `;
+  exportBtn.onclick = () => exportReport(sessionId);
+
+  // 添加到消息区域底部
+  const messagesArea = document.getElementById('messages-area');
+  const existingBtn = messagesArea.querySelector('.export-report-btn');
+  if (existingBtn) {
+    existingBtn.remove();
+  }
+  messagesArea.appendChild(exportBtn);
+  exportBtn.style.display = 'inline-flex';
+}
+
+// 加载用户画像
+async function loadUserProfile() {
+  try {
+    const [profileRes, errorBankRes] = await Promise.all([
+      fetch(`${API_BASE}/api/assembly/profile`),
+      fetch(`${API_BASE}/api/assembly/error-bank`)
+    ]);
+
+    const profile = await profileRes.json();
+    const errorBankData = await errorBankRes.json();
+
+    // 更新统计数据
+    document.getElementById('total-sessions').textContent = profile.total_sessions || 0;
+    document.getElementById('completed-tasks').textContent = profile.completed_tasks || 0;
+    document.getElementById('total-errors').textContent = profile.total_errors || 0;
+    document.getElementById('avg-hint-level').textContent = (profile.avg_hint_level || 1.0).toFixed(1);
+
+    // 渲染擅长领域
+    const strongAreasEl = document.getElementById('strong-areas');
+    if (profile.strong_areas && profile.strong_areas.length > 0) {
+      strongAreasEl.innerHTML = profile.strong_areas.map(area =>
+        `<span class="area-tag">${area}</span>`
+      ).join('');
+    } else {
+      strongAreasEl.innerHTML = '<span class="area-tag">暂无数据</span>';
+    }
+
+    // 渲染薄弱环节
+    const weakAreasEl = document.getElementById('weak-areas');
+    if (profile.weak_areas && profile.weak_areas.length > 0) {
+      weakAreasEl.innerHTML = profile.weak_areas.map(area =>
+        `<span class="area-tag weak">${area}</span>`
+      ).join('');
+    } else {
+      weakAreasEl.innerHTML = '<span class="area-tag weak">暂无数据</span>';
+    }
+
+    // 渲染错题库
+    const errorListEl = document.getElementById('error-bank-list');
+    if (errorBankData.errors && errorBankData.errors.length > 0) {
+      errorListEl.innerHTML = errorBankData.errors.map(error => `
+        <div class="error-item">
+          <div class="error-item-header">
+            <span class="error-category">${error.category}</span>
+            <span class="error-count">出现 ${error.count} 次</span>
+          </div>
+          <div class="error-description">${error.description || '无描述'}</div>
+          <div class="error-knowledge">知识点: ${error.knowledge_point}</div>
+        </div>
+      `).join('');
+    } else {
+      errorListEl.innerHTML = '<div class="empty-message">暂无错误记录</div>';
+    }
+
+  } catch (error) {
+    console.error('加载用户画像失败:', error);
+    showNotification('加载失败', 'error');
+  }
+}
+
+// 个人画像按钮点击
+document.getElementById('btn-profile').addEventListener('click', async () => {
+  switchView('profile');
+  await loadUserProfile();
+});
+
+// 个人画像返回按钮
+document.getElementById('profile-back-btn').addEventListener('click', () => {
+  switchView('chat');
+});
 
 console.log('[Webview] Script initialization complete');

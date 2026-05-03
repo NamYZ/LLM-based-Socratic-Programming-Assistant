@@ -1,5 +1,5 @@
 """
-聊天路由：处理聊天消息发送 - AI 回复 - Agent 过程事件 的 API 请求
+聊天路由：处理聊天消息发送 - AI 回复的 API 请求
 """
 
 from fastapi import APIRouter, HTTPException
@@ -9,8 +9,13 @@ import json
 import re
 import sys
 import os
+import importlib
+import traceback
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BACKEND_ROOT in sys.path:
+    sys.path.remove(BACKEND_ROOT)
+sys.path.insert(0, BACKEND_ROOT)
 
 # 导入 langchain 相关模块
 from langchain_openai import ChatOpenAI
@@ -20,9 +25,46 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 
 # 导入自定义模块
 from models import ChatRequest
-from agent_core import create_agent
 from database import DB_PATH, get_api_key, get_local_time, auto_title, get_session_history
 from ask_prompts import GUIDED_SYSTEM_PROMPT, ANSWER_SYSTEM_PROMPT
+
+_ASSEMBLY_AGENT_IMPORT_ERROR = None
+
+
+def get_assembly_agent_class():
+    """优先加载当前项目 backend 目录下的 AssemblyTeachingAgent。"""
+    global _ASSEMBLY_AGENT_IMPORT_ERROR
+
+    package_dir = os.path.join(BACKEND_ROOT, 'assembly_agent')
+    package_init = os.path.join(package_dir, '__init__.py')
+
+    try:
+        if not os.path.exists(package_init):
+            raise ImportError(f"缺少文件: {package_init}")
+
+        cached_module = sys.modules.get('assembly_agent')
+        cached_module_path = getattr(cached_module, '__file__', '') if cached_module else ''
+        local_package_prefix = os.path.abspath(package_dir) + os.sep
+
+        # 避免被环境里同名的第三方模块覆盖。
+        if cached_module and (
+            not cached_module_path or
+            not os.path.abspath(cached_module_path).startswith(local_package_prefix)
+        ):
+            sys.modules.pop('assembly_agent', None)
+
+        module = importlib.import_module('assembly_agent')
+        agent_class = getattr(module, 'AssemblyTeachingAgent', None)
+        if agent_class is None:
+            raise ImportError('assembly_agent 模块中未导出 AssemblyTeachingAgent')
+
+        _ASSEMBLY_AGENT_IMPORT_ERROR = None
+        return agent_class
+    except Exception as exc:
+        _ASSEMBLY_AGENT_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
+        print(f"[WARNING] Failed to load Assembly Teaching Agent: {_ASSEMBLY_AGENT_IMPORT_ERROR}")
+        traceback.print_exc()
+        return None
 
 
 router = APIRouter()
@@ -79,29 +121,107 @@ def contains_code(text: str) -> bool:
     return False
 
 
-def resolve_agent_mode(request_mode: str, detected_mode: str) -> str:
-    """
-    将前端会话模式映射为 Agent 内部子模式。
-    - agent: 由 Agent 自动检测 guide/debug
-    - guided: 固定走 guide
-    - debug/guide: 透传给 Agent
-    - 其他模式: 回退到自动检测结果
-    """
-    if request_mode == 'guided':
-        return 'guide'
-    if request_mode in ('guide', 'debug'):
-        return request_mode
-    return detected_mode
+async def handle_assembly_agent(req: ChatRequest, api_key: str, model_name: str, base_url: str, agent_class):
+    """处理Assembly Teaching Agent模式的请求"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
+    # 创建或获取会话
+    is_new = False
+    session_id = req.session_id
+    if not session_id:
+        title = auto_title(req.message)
+        local_time = get_local_time()
+        c.execute("INSERT INTO sessions_vscode (title, mode, created_at, updated_at) VALUES (?,?,?,?)",
+                  (title, req.mode, local_time, local_time))
+        session_id = c.lastrowid
+        conn.commit()
+        is_new = True
 
-def build_agent_step(phase: str, title: str, content: str = "", status: str = "info") -> dict:
-    """统一 Agent 过程事件结构。"""
-    return {
-        "phase": phase,
-        "title": title,
-        "content": content,
-        "status": status
-    }
+    # 存储用户消息
+    c.execute("INSERT INTO messages_vscode (session_id, role, content, created_at) VALUES (?,?,?,?)",
+              (session_id, 'user', req.message, get_local_time()))
+    conn.commit()
+    conn.close()
+
+    # 创建Agent实例
+    agent = agent_class(api_key, model_name, base_url)
+
+    # 确定Agent模式
+    agent_mode = "requirement_guide" if req.mode == "assembly_guide" else "code_check"
+
+    # 提取需求（从消息或代码上下文）
+    requirement = req.message
+    if hasattr(req, 'codeContexts') and req.codeContexts:
+        # 如果有代码上下文，将其作为需求的一部分
+        context_text = "\n\n".join([f"文件: {ctx.get('fileName', '')}\n```\n{ctx.get('content', '')}\n```"
+                                     for ctx in req.codeContexts])
+        requirement = f"{req.message}\n\n相关代码:\n{context_text}"
+
+    # 提取当前编辑器中的代码
+    current_code = req.current_code if req.current_code else ""
+
+    async def generate():
+        try:
+            full_reply = ""
+
+            # 调用Agent处理消息
+            async for chunk in agent.process_message(
+                session_id=session_id,
+                user_message=req.message,
+                mode=agent_mode,
+                requirement=requirement,
+                current_code=current_code  # 传递当前代码
+            ):
+                chunk_type = chunk.get('type')
+                content = chunk.get('content', '')
+
+                if chunk_type == 'status':
+                    # 发送状态更新
+                    yield f"data: {json.dumps({'status': content}, ensure_ascii=False)}\n\n"
+
+                elif chunk_type == 'task_steps':
+                    # 发送任务步骤
+                    yield f"data: {json.dumps({'task_steps': content}, ensure_ascii=False)}\n\n"
+
+                elif chunk_type == 'content':
+                    # 发送内容
+                    full_reply += content
+                    yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+
+                elif chunk_type == 'done':
+                    # 完成
+                    break
+
+                elif chunk_type == 'error':
+                    # 错误
+                    yield f"data: {json.dumps({'error': content}, ensure_ascii=False)}\n\n"
+                    return
+
+            # 保存AI回复到数据库
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("INSERT INTO messages_vscode (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                      (session_id, 'assistant', full_reply, get_local_time()))
+            c.execute("UPDATE sessions_vscode SET updated_at=? WHERE id=?", (get_local_time(), session_id))
+            conn.commit()
+            conn.close()
+
+            # 发送完成信号
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id, 'is_new_session': is_new}, ensure_ascii=False)}\n\n"
+
+        except Exception as e:
+            error_msg = f"Assembly Agent错误: {str(e)}"
+            yield f"data: {json.dumps({'error': error_msg}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    )
 
 
 @router.post("/api/chat")
@@ -114,6 +234,16 @@ async def chat(req: ChatRequest):
     api_key, model_name, provider, base_url = get_api_key()
     if not api_key:
         raise HTTPException(status_code=400, detail='请先配置 API Key')
+
+    # 检查是否使用Assembly Teaching Agent模式
+    if req.mode in ['assembly_guide', 'assembly_check']:
+        assembly_agent_class = get_assembly_agent_class()
+        if assembly_agent_class is None:
+            detail = 'Assembly Teaching Agent加载失败'
+            if _ASSEMBLY_AGENT_IMPORT_ERROR:
+                detail = f'{detail}: {_ASSEMBLY_AGENT_IMPORT_ERROR}'
+            raise HTTPException(status_code=500, detail=detail)
+        return await handle_assembly_agent(req, api_key, model_name, base_url, assembly_agent_class)
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -137,67 +267,9 @@ async def chat(req: ChatRequest):
     conn.commit()
     conn.close()
 
-    # Agent 模式的生成函数
-    def generate_with_agent():
-        try:
-            # 创建 Agent
-            agent = create_agent(api_key, model_name, base_url)
-
-            # 自动检测模式（如果前端没有明确指定）
-            detected_mode = agent.detect_mode(req.message, req.current_code or "")
-            agent_mode = resolve_agent_mode(req.mode, detected_mode)
-            final_answer = ""
-
-            # 发送思考状态
-            yield f"data: {json.dumps({'status': 'thinking'}, ensure_ascii=False)}\n\n"
-            yield f"data: {json.dumps({'agent_step': build_agent_step('mode', f'已进入 {agent_mode} 模式', 'Agent 正在分析问题并规划后续工具调用。')}, ensure_ascii=False)}\n\n"
-
-            # 流式接收 Agent 过程
-            for event in agent.stream_process(
-                user_message=req.message,
-                current_code=req.current_code or "",
-                session_id=session_id,
-                mode=agent_mode
-            ):
-                if event.get('kind') == 'agent_step':
-                    yield f"data: {json.dumps({'agent_step': event}, ensure_ascii=False)}\n\n"
-                elif event.get('kind') == 'final_answer':
-                    final_answer = event.get('content', '')
-
-            if not final_answer:
-                final_answer = "抱歉，我无法生成合适的引导问题。"
-
-            # 发送生成状态
-            yield f"data: {json.dumps({'status': 'generating'}, ensure_ascii=False)}\n\n"
-
-            # 逐字输出结果
-            for char in final_answer:
-                yield f"data: {json.dumps({'content': char}, ensure_ascii=False)}\n\n"
-
-            # 保存到数据库
-            conn = sqlite3.connect(DB_PATH)
-            c = conn.cursor()
-            c.execute("INSERT INTO messages_vscode (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                      (session_id, 'assistant', final_answer, get_local_time()))
-            c.execute("UPDATE sessions_vscode SET updated_at=? WHERE id=?", (get_local_time(), session_id))
-            conn.commit()
-            conn.close()
-
-            # 完成
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id, 'is_new_session': is_new}, ensure_ascii=False)}\n\n"
-
-        except Exception as e:
-            error_msg = f"Agent 处理失败: {str(e)}"
-            yield f"data: {json.dumps({'error': error_msg}, ensure_ascii=False)}\n\n"
-
     # AI 模型流式输出回答，边生成边返回给前端，同时把完整回答存到数据库里
     def generate():
         try:
-            # 如果启用 Agent 模式
-            if req.use_agent or req.mode == 'agent':
-                yield from generate_with_agent()
-                return
-
             # 准备模型参数，使用前端传来的采样参数或默认值
             model_kwargs = {
                 'model': model_name,

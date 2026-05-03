@@ -8,10 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import init_db, DB_PATH
 
-# 导入 3 个路由模块
+# 导入 4 个路由模块
 from routers.config_router import router as config_router
 from routers.session_router import router as session_router
 from routers.chat_router import router as chat_router
+from routers.assembly_router import router as assembly_router
 
 # 创建 FastAPI 应用
 app = FastAPI()
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(config_router, tags=["配置管理"])
 app.include_router(session_router, tags=["会话管理"])
 app.include_router(chat_router, tags=["聊天"])
+app.include_router(assembly_router, tags=["Assembly Agent"])
 
 
 @app.get("/")
