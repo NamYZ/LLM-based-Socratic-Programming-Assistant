@@ -1,6 +1,5 @@
 """
-Learning Report Generator for Assembly Teaching Agent
-生成综合学习报告，包含统计分析、进度时间线、错误分析、知识点评估
+Learning Report Generator for Assembly Teaching Agent - 生成综合学习报告，包含统计分析、进度时间线、错误分析、知识点评估
 """
 
 import sqlite3

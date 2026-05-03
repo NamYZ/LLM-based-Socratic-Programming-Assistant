@@ -1,6 +1,5 @@
 """
-简化的 Agent 实现 - 不使用 LangChain 的 create_agent
-手动实现工具调用循环，完全控制消息处理
+简化的 Agent 实现 - 不使用 LangChain 的 create_agent - 手动实现工具调用循环，完全控制消息处理
 """
 
 from typing import Dict, Any, Optional, AsyncIterator
@@ -8,6 +7,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import json
 import re
 
+# 导入外部模块
 from .state_manager import AgentStateManager
 from .langchain_tools import create_langchain_tools
 from .filtered_llm import FilteredChatOpenAI
@@ -261,6 +261,7 @@ class AssemblyTeachingAgentSimple:
                 pass
 
             # 构建系统提示
+
             # 使用基础 system prompt
             base_system_prompt = SYSTEM_PROMPT
 
@@ -287,22 +288,42 @@ class AssemblyTeachingAgentSimple:
 # 可用工具（代码检查模式）
 
 你只能使用以下工具：
-- **code_validator**: 验证用户代码的语法、逻辑和语义正确性
-- **hint_generator**: 根据当前上下文和hint_level生成引导性问题
-- **get_state**: 获取当前会话状态信息
+- code_validator: 验证用户代码的语法、逻辑和语义正确性
+- hint_generator: 根据当前上下文和 hint_level 生成引导性问题
+- get_state: 获取当前会话状态信息
 
 注意：代码检查模式下不能使用 task_decomposer 和 progress_evaluator 工具。
 """
             else:  # requirement_guide
-                available_tools_desc = """
-# 可用工具（需求引导模式）
+                # 根据是否已有任务步骤，动态调整工具说明
+                if state['task_steps']:
+                    # 任务已分解，禁止使用 task_decomposer
+                    available_tools_desc = """
+# 可用工具（需求引导模式 - 任务已分解）
+
+重要：任务步骤已经分解完成，不要再调用 task_decomposer！
 
 你可以使用以下工具：
-- **task_decomposer**: 将用户需求拆解为具体的实现步骤
-- **code_validator**: 验证用户代码的语法、逻辑和语义正确性
-- **hint_generator**: 根据当前上下文和hint_level生成引导性问题
-- **progress_evaluator**: 评估当前步骤是否完成，是否可以进入下一步
-- **get_state**: 获取当前会话状态信息
+- code_validator: 验证用户代码的语法、逻辑和语义正确性
+- hint_generator: 根据当前上下文和 hint_level 生成引导性问题
+- progress_evaluator: 评估当前步骤是否完成，是否可以进入下一步
+- get_state: 获取当前会话状态信息
+
+禁止使用：task_decomposer（任务已经分解，不需要重新分解）
+"""
+                else:
+                    # 任务未分解，可以使用 task_decomposer
+                    available_tools_desc = """
+# 可用工具（需求引导模式 - 等待任务分解）
+
+你可以使用以下工具：
+- task_decomposer: 将用户需求拆解为具体的实现步骤（仅在任务未分解时使用一次）
+- code_validator: 验证用户代码的语法、逻辑和语义正确性
+- hint_generator: 根据当前上下文和 hint_level 生成引导性问题
+- progress_evaluator: 评估当前步骤是否完成，是否可以进入下一步
+- get_state: 获取当前会话状态信息
+
+注意：task_decomposer 只能在任务步骤为空时调用一次！分解完成后不要再调用！
 """
 
             system_prompt = f"""{base_system_prompt}
@@ -333,13 +354,13 @@ Action Input: {{"context": "学生想了解变量定义", "hint_level": 1, "mode
 
 # 重要：何时让用户写代码 vs 何时提问
 
-**直接让用户写代码的情况（不要提问）：**
+直接让用户写代码的情况（不要提问）：
 1. 刚拆解完任务步骤后 → 说"现在请完成第一步的代码实现"
 2. 当前步骤完成，进入下一步 → 说"很好！请继续完成下一步的代码"
 3. 学生回答了问题但还没写代码 → 说"请开始实现这一步的代码"
 4. 学生还没有开始写代码 → 说"请开始实现这一步的代码"
 
-**通过问题引导的情况：**
+通过问题引导的情况：
 1. 学生提交了代码但有错误 → 使用 hint_generator 生成引导问题
 2. 学生的实现思路有问题 → 使用 hint_generator 生成引导问题
 
@@ -419,7 +440,10 @@ Action Input: {{"context": "学生想了解变量定义", "hint_level": 1, "mode
         understanding_keywords = [
             "好像没有", "确实没有", "没有初始化", "忘记了",
             "应该", "需要", "明白了", "理解了", "知道了",
-            "是的", "对的", "正确", "没错"
+            "是的", "对的", "正确", "没错",
+            # 表示用户已经采取行动的关键词
+            "好了", "改好了", "修改了", "修复了", "改了",
+            "已经改", "已经修改", "已经修复", "完成了", "弄好了"
         ]
         message_lower = message.lower()
         return any(keyword in message_lower for keyword in understanding_keywords)

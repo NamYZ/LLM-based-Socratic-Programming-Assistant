@@ -1,12 +1,10 @@
 """
-Assembly Agent Router
-提供 Assembly Teaching Agent 的专用 API 端点
+Assembly Agent Router 提供 Assembly Teaching Agent 的专用 API 端点
 """
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
-from typing import Optional
 import json
 import tempfile
 import os

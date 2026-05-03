@@ -207,8 +207,14 @@ async def handle_assembly_agent(req: ChatRequest, api_key: str, model_name: str,
             conn.commit()
             conn.close()
 
-            # 发送完成信号
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id, 'is_new_session': is_new}, ensure_ascii=False)}\n\n"
+            # 获取任务完成状态
+            from assembly_agent.state_manager import AgentStateManager
+            state_manager = AgentStateManager()
+            state = state_manager.get_state(session_id)
+            completion_status = state.get('completion_status', 'in_progress') if state else 'in_progress'
+
+            # 发送完成信号（包含completion_status）
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id, 'is_new_session': is_new, 'completion_status': completion_status}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             error_msg = f"Assembly Agent错误: {str(e)}"

@@ -1,13 +1,8 @@
 """
-自定义 ChatOpenAI 包装器，用于处理 reasoning_content
-DeepSeek 模型的 thinking mode 要求保留 reasoning_content 在对话历史中
+自定义 ChatOpenAI 包装器，用于处理 reasoning_content - DeepSeek 模型的 thinking mode 要求保留 reasoning_content 在对话历史中
 """
 
-from typing import Any, List, Optional
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import BaseMessage, AIMessage
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.outputs import ChatResult, ChatGeneration
 
 
 class FilteredChatOpenAI(ChatOpenAI):

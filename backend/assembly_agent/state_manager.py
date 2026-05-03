@@ -1,6 +1,5 @@
 """
-State Manager for Assembly Teaching Agent
-管理会话状态：任务进度、用户代码、当前引导步骤、HintLevel、错误历史
+State Manager for Assembly Teaching Agent - 管理会话状态：任务进度、用户代码、当前引导步骤、HintLevel、错误历史
 """
 
 import sqlite3
@@ -11,60 +10,10 @@ from database import DB_PATH
 
 
 class AgentStateManager:
-    """管理Assembly Teaching Agent的会话状态"""
+    """管理Assembly Teaching Agent的会话状态
 
-    def __init__(self):
-        self._init_db()
-
-    def _init_db(self):
-        """初始化数据库表"""
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        # 创建assembly_agent_sessions表
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS assembly_agent_sessions (
-                session_id INTEGER PRIMARY KEY,
-                mode TEXT NOT NULL,
-                task_steps TEXT,
-                current_step INTEGER DEFAULT 0,
-                user_code TEXT DEFAULT '',
-                hint_level INTEGER DEFAULT 1,
-                hint_level_manual_mode INTEGER DEFAULT 0,
-                error_history TEXT DEFAULT '[]',
-                conversation_context TEXT DEFAULT '',
-                requirement TEXT DEFAULT '',
-                total_steps INTEGER DEFAULT 0,
-                completion_status TEXT DEFAULT 'in_progress',
-                created_at TEXT,
-                updated_at TEXT
-            )
-        """)
-
-        # 迁移逻辑：检查并添加缺失的列
-        # 获取现有列名
-        cursor.execute("PRAGMA table_info(assembly_agent_sessions)")
-        existing_columns = {row[1] for row in cursor.fetchall()}
-
-        # 需要的列及其定义
-        required_columns = {
-            'hint_level_manual_mode': 'INTEGER DEFAULT 0',
-            'total_steps': 'INTEGER DEFAULT 0',
-            'completion_status': "TEXT DEFAULT 'in_progress'"
-        }
-
-        # 添加缺失的列
-        for column_name, column_def in required_columns.items():
-            if column_name not in existing_columns:
-                try:
-                    cursor.execute(f"ALTER TABLE assembly_agent_sessions ADD COLUMN {column_name} {column_def}")
-                    print(f"[Migration] Added column '{column_name}' to assembly_agent_sessions")
-                except sqlite3.OperationalError as e:
-                    # 列可能已存在（并发情况），忽略错误
-                    print(f"[Migration] Column '{column_name}' already exists or error: {e}")
-
-        conn.commit()
-        conn.close()
+    注意：数据库表的创建已在 database.py 的 init_db() 中完成
+    """
 
     def get_state(self, session_id: int) -> Optional[Dict[str, Any]]:
         """获取会话状态"""
@@ -168,13 +117,13 @@ class AgentStateManager:
             self.update_state(session_id, {'current_step': state['current_step'] + 1})
 
     def increase_hint_level(self, session_id: int):
-        """提升hint_level（最大3）"""
+        """提升 hint_level（最大3）"""
         state = self.get_state(session_id)
         if state and state['hint_level'] < 3:
             self.update_state(session_id, {'hint_level': state['hint_level'] + 1})
 
     def reset_hint_level(self, session_id: int):
-        """重置hint_level为1"""
+        """重置 hint_level 为1"""
         self.update_state(session_id, {'hint_level': 1})
 
     def add_error(self, session_id: int, error_type: str, error_category: str):

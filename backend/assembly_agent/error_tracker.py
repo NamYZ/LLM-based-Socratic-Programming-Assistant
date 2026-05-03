@@ -1,11 +1,10 @@
 """
-Error Tracker for Assembly Teaching Agent
-自动追踪和分类用户的错误模式，构建个人错题库
+Error Tracker for Assembly Teaching Agent - 自动追踪和分类用户的错误模式，构建个人错题库
 """
 
 import sqlite3
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from datetime import datetime
 from database import DB_PATH
 

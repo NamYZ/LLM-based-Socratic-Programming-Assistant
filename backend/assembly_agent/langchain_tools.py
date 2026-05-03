@@ -1,11 +1,10 @@
 """
-LangChain-compatible tools for Assembly Teaching Agent
-将现有工具转换为标准的LangChain Tool格式
+LangChain-compatible tools for Assembly Teaching Agent - 将现有工具转换为标准的 LangChain Tool 格式
 """
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from typing import List, Optional
 import json
 
 from .filtered_llm import FilteredChatOpenAI
@@ -81,6 +80,11 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
     # ===== Task Decomposer Tool =====
     def task_decomposer_func(requirement: str) -> str:
         """将用户需求拆解为具体的实现步骤"""
+        # 检查任务是否已经分解过
+        state = state_manager.get_state(session_id)
+        if state and state.get('task_steps'):
+            return f"错误：任务已经分解完成，不能重复分解！当前任务包含{len(state['task_steps'])}个步骤。请使用 progress_evaluator 评估进度，而不是重新分解任务。"
+
         prompt = TASK_DECOMPOSER_PROMPT.format(requirement=requirement)
         try:
             response = llm.invoke(prompt)
@@ -219,7 +223,19 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
                 if state and state['current_step'] < len(task_steps):
                     state_manager.move_to_next_step(session_id)
                     state_manager.reset_hint_level(session_id)
-                    return f"当前步骤已完成！已自动进入下一步: {task_steps[state['current_step']]}"
+
+                    # 检查是否所有步骤都已完成
+                    updated_state = state_manager.get_state(session_id)
+                    if updated_state and updated_state['current_step'] >= len(task_steps):
+                        # 所有步骤完成，标记为已完成
+                        state_manager.mark_completed(session_id)
+                        return f"恭喜！所有步骤已完成！任务已成功完成。"
+
+                    return f"当前步骤已完成！已自动进入下一步: {task_steps[updated_state['current_step']]}"
+                elif state and state['current_step'] >= len(task_steps):
+                    # 已经是最后一步，标记为完成
+                    state_manager.mark_completed(session_id)
+                    return f"恭喜！所有步骤已完成！任务已成功完成。"
 
             return f"进度评估: {'已完成' if result.get('is_completed', False) else '未完成'}\n完成度: {result.get('completion_rate', 0)*100}%\n建议: {result.get('next_action', 'continue_current')}"
         except Exception as e:

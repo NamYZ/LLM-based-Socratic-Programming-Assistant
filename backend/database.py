@@ -219,6 +219,47 @@ def init_db():
         )
     ''')
 
+    # Assembly Teaching Agent 会话状态表
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS assembly_agent_sessions (
+            session_id INTEGER PRIMARY KEY,
+            mode TEXT NOT NULL,
+            task_steps TEXT,
+            current_step INTEGER DEFAULT 0,
+            user_code TEXT DEFAULT '',
+            hint_level INTEGER DEFAULT 1,
+            hint_level_manual_mode INTEGER DEFAULT 0,
+            error_history TEXT DEFAULT '[]',
+            conversation_context TEXT DEFAULT '',
+            requirement TEXT DEFAULT '',
+            total_steps INTEGER DEFAULT 0,
+            completion_status TEXT DEFAULT 'in_progress',
+            created_at TEXT,
+            updated_at TEXT
+        )
+    ''')
+
+    # 迁移逻辑：检查并添加缺失的列到 assembly_agent_sessions 表
+    c.execute("PRAGMA table_info(assembly_agent_sessions)")
+    existing_columns = {row[1] for row in c.fetchall()}
+
+    # 需要的列及其定义
+    required_columns = {
+        'hint_level_manual_mode': 'INTEGER DEFAULT 0',
+        'total_steps': 'INTEGER DEFAULT 0',
+        'completion_status': "TEXT DEFAULT 'in_progress'"
+    }
+
+    # 添加缺失的列
+    for column_name, column_def in required_columns.items():
+        if column_name not in existing_columns:
+            try:
+                c.execute(f"ALTER TABLE assembly_agent_sessions ADD COLUMN {column_name} {column_def}")
+                print(f"[Migration] Added column '{column_name}' to assembly_agent_sessions")
+            except sqlite3.OperationalError as e:
+                # 列可能已存在（并发情况），忽略错误
+                print(f"[Migration] Column '{column_name}' already exists or error: {e}")
+
     conn.commit()
     conn.close()
 
