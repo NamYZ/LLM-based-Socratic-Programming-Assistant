@@ -36,12 +36,8 @@ def get_assembly_agent_class():
     global _ASSEMBLY_AGENT_IMPORT_ERROR
 
     package_dir = os.path.join(BACKEND_ROOT, 'assembly_agent')
-    package_init = os.path.join(package_dir, '__init__.py')
 
     try:
-        if not os.path.exists(package_init):
-            raise ImportError(f"缺少文件: {package_init}")
-
         cached_module = sys.modules.get('assembly_agent')
         cached_module_path = getattr(cached_module, '__file__', '') if cached_module else ''
         local_package_prefix = os.path.abspath(package_dir) + os.sep

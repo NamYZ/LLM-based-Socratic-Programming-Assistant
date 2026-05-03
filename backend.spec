@@ -7,7 +7,13 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 block_cipher = None
 
 # 收集所有需要的数据文件和子模块
-datas = []
+# 显式添加 Python 包目录，确保 __init__.py 和所有模块文件都被正确打包
+datas = [
+    ('backend/assembly_agent', 'assembly_agent'),
+    ('backend/ask_prompts', 'ask_prompts'),
+]
+
+# 自动收集 assembly_agent 和 ask_prompts 的所有子模块
 hiddenimports = [
     'uvicorn.logging',
     'uvicorn.loops',
@@ -25,6 +31,29 @@ hiddenimports = [
     'langchain_openai',
     'langchain_core',
     'langchain_community',
+
+    # Assembly Agent 模块及其所有子模块
+    'assembly_agent',
+    'assembly_agent.simple_agent',
+    'assembly_agent.state_manager',
+    'assembly_agent.error_tracker',
+    'assembly_agent.filtered_llm',
+    'assembly_agent.langchain_tools',
+    'assembly_agent.report_generator',
+    'assembly_agent.prompts',
+    'assembly_agent.prompts.system_prompt',
+    'assembly_agent.prompts.mode_prompts',
+    'assembly_agent.prompts.tool_prompts',
+
+    # Ask Prompts 模块
+    'ask_prompts',
+    'ask_prompts.question_mode_prompts',
+    'ask_prompts.guided_mode_prompts',
+
+    # LangChain 额外的子模块（显式添加以确保打包）
+    'langchain_core.tools',
+    'langchain_core.runnables',
+    'langchain_core.runnables.history',
 ]
 
 a = Analysis(

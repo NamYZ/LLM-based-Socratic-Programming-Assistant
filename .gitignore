@@ -45,3 +45,8 @@ CLAUDE.md
 .vscode-test.mjs
 backend-bin/
 DEPLOYMENT_SUMMARY.md
+
+# Build artifacts
+*.vsix
+build/
+dist/

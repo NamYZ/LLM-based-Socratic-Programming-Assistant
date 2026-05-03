@@ -1,45 +1,45 @@
+# VSCode 配置和测试
 .vscode/**
 .vscode-test/**
+.vscode-test.mjs
+
+# 源代码（只需要编译后的 out/ 目录）
 src/**
+**/*.ts
+**/*.map
+
+# 配置文件
+tsconfig.json
+eslint.config.mjs
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
-**/*.map
-**/*.ts
-**/.vscode-test.*
-node_modules/**/.bin/**
 
-# 排除 Python 源码（生产模式不需要）
+# Python 后端源代码（已打包成 backend-bin/backend）
 backend/**
 
-# 排除 Python 缓存和环境
-**/__pycache__/**
-**/*.pyc
-**/*.pyo
-**/.pytest_cache/**
-**/.mypy_cache/**
-**/venv/**
-**/.venv/**
-**/.env
-
-# 排除打包临时文件
-build/**
-dist/**
-*.spec
-build-backend-mac.sh
-build-backend-win.bat
-
-# 排除其他文件
-.git/**
-.DS_Store
-*.vsix
+# Python 开发环境
+.venv/**
+.python-version
 pyproject.toml
 requirements.txt
-uv.lock
-start-backend.sh
-start-backend.bat
 
-# 重要：包含打包好的后端可执行文件
-!backend-bin/**
+# 构建脚本和配置
+scripts/**
+backend.spec
+build/
+dist/
+
+# 文档（可选，如果想包含文档就删除这行）
+DEPLOYMENT_SUMMARY.md
+
+# Git 和系统文件
+.git/**
+.gitignore
+.DS_Store
+
+# 已打包的插件
+*.vsix
+
+# node_modules 中的开发工具
+node_modules/**/.bin/**

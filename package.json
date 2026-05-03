@@ -1,10 +1,11 @@
 {
-  "name": "ai-coding-tool",
-  "displayName": "AI Coding Tool",
+  "name": "ai-coding-tool-by-namyz",
+  "displayName": "汇编语言编程助手",
   "description": "AI-powered coding assistant with guided and answer modes",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "NamYZ",
   "repository": "none",
+  "icon": "media/icon-new.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -18,18 +19,18 @@
       "activitybar": [
         {
           "id": "ai-coding-tool",
-          "title": "AI Coding Tool",
-          "icon": "media/icon.svg"
+          "title": "汇编语言编程助手",
+          "icon": "media/icon-new.svg"
         }
       ]
     },
     "views": {
       "ai-coding-tool": [
         {
-          "icon": "media/icon.svg",
+          "icon": "media/icon-new.svg",
           "type": "webview",
           "id": "aiCodingTool.chatView",
-          "name": "AI Chat Assistant"
+          "name": "汇编语言编程助手"
         }
       ]
     },
@@ -88,9 +89,11 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "lint": "eslint src",
-    "build:backend-mac": "bash build-backend-mac.sh",
-    "build:backend-win": "build-backend-win.bat",
-    "check-backend": "node -e \"const fs=require('fs');const p=process.platform;const f=p==='win32'?'backend-bin/backend.exe':'backend-bin/backend';if(!fs.existsSync(f)){console.error('\\n❌ 错误：未找到后端可执行文件！\\n请先运行打包脚本：\\n  Mac: npm run build:backend-mac\\n  Windows: npm run build:backend-win\\n');process.exit(1);}console.log('✅ 后端可执行文件检查通过');\""
+    "build:backend-mac": "bash scripts/build-backend-mac.sh",
+    "build:backend-win": "scripts\\build-backend-win.bat",
+    "package:mac": "bash scripts/package-all-mac.sh",
+    "package:win": "scripts\\package-all-win.bat",
+    "check-backend": "node -e \"const fs=require('fs');const p=process.platform;const f=p==='win32'?'backend-bin/backend.exe':'backend-bin/backend';if(!fs.existsSync(f)){console.error('\\n❌ 错误：未找到后端可执行文件！\\n请先运行打包脚本：\\n  Mac: npm run build:backend-mac 或 npm run package:mac\\n  Windows: npm run build:backend-win 或 npm run package:win\\n');process.exit(1);}console.log('✅ 后端可执行文件检查通过');\""
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
