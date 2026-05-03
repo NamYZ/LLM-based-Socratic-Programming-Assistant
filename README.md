@@ -49,10 +49,14 @@ AI Coding Tool 是一个基于大语言模型的汇编语言编程助手 VS Code
 - **Node.js** (推荐 v18 或更高版本)
 - **Python** 3.8+
 - **VS Code** 1.85.0 或更高版本
+- **PyInstaller** (用于打包后端，仅打包时需要)
+- **vsce** (用于打包插件，仅打包时需要)
 
 ---
 
-### 安装与启动
+### 方式一：开发模式（推荐用于开发调试）
+
+### 方式一：开发模式（推荐用于开发调试）
 
 #### 1. 安装系统依赖
 
@@ -152,6 +156,117 @@ uvicorn app_fastapi:app --reload --port 8000
 2. 按 `F5` 启动扩展开发主机
 3. 在新打开的 VS Code 窗口中，点击侧边栏的 AI Coding Tool 图标
 4. 开始使用！
+
+---
+
+### 方式二：打包模式（推荐用于分发和生产使用）
+
+#### 1. 克隆项目并安装前端依赖
+
+```bash
+git clone https://github.com/your-username/ai-coding-tool.git
+cd ai-coding-tool
+npm install
+```
+
+#### 2. 安装打包工具
+
+**安装 PyInstaller（用于打包后端）：**
+
+```bash
+pip install pyinstaller
+```
+
+**安装 vsce（用于打包 VS Code 插件）：**
+
+```bash
+npm install -g @vscode/vsce
+```
+
+#### 3. 打包后端可执行文件
+
+根据你的目标平台选择对应的打包脚本：
+
+**macOS/Linux:**
+
+```bash
+# 打包 Mac 版本后端
+npm run build:backend-mac
+# 或直接运行脚本
+bash build-backend-mac.sh
+```
+
+这会在 `backend-bin/` 目录生成 `backend` 可执行文件。
+
+**Windows:**
+
+```cmd
+# 打包 Windows 版本后端
+npm run build:backend-win
+# 或直接运行脚本
+build-backend-win.bat
+```
+
+这会在 `backend-bin/` 目录生成 `backend.exe` 可执行文件。
+
+**跨平台打包（可选）：**
+
+如果你想打包一个同时支持 Windows 和 Mac 的插件：
+
+1. 在 Mac 上运行 `npm run build:backend-mac`
+2. 在 Windows 上运行 `npm run build:backend-win`
+3. 将两个平台的可执行文件都放在 `backend-bin/` 目录：
+   ```
+   backend-bin/
+   ├── backend      (Mac/Linux)
+   └── backend.exe  (Windows)
+   ```
+
+插件会根据运行平台自动选择对应的后端可执行文件。
+
+#### 4. 打包 VS Code 插件
+
+```bash
+vsce package
+```
+
+这会生成 `ai-coding-tool-0.0.1.vsix` 文件。
+
+#### 5. 安装打包好的插件
+
+**方式 A：通过 VS Code 界面安装**
+
+1. 打开 VS Code
+2. 点击左侧扩展图标
+3. 点击右上角的 `...` 菜单
+4. 选择 "从 VSIX 安装..."
+5. 选择生成的 `.vsix` 文件
+
+**方式 B：通过命令行安装**
+
+```bash
+code --install-extension ai-coding-tool-0.0.1.vsix
+```
+
+#### 6. 配置 API 密钥
+
+安装后首次使用需要配置 OpenAI API 密钥：
+
+1. 点击侧边栏的 AI Coding Tool 图标
+2. 点击设置按钮
+3. 输入你的 OpenAI API 密钥
+4. 选择模型（推荐 gpt-4 或 gpt-3.5-turbo）
+5. 保存配置
+
+#### 7. 开始使用
+
+打开任意代码文件，点击侧边栏的 AI Coding Tool 图标，开始与 AI 助手对话！
+
+**注意事项：**
+
+- 打包模式下，后端会自动启动，无需手动运行 Python 脚本
+- 后端可执行文件已包含所有依赖，无需安装 Python 环境
+- 插件首次启动时，后端可能需要 10-20 秒初始化
 
 ---
 
@@ -292,30 +407,30 @@ ai-coding-tool/
 │       ├── task_prompt.py           # 任务提示词构建
 │       └── tool_prompt.py           # 工具使用说明
 │
+├── backend-bin/                     # 打包后的后端可执行文件
+│   ├── backend                      # Mac/Linux 可执行文件
+│   └── backend.exe                  # Windows 可执行文件
+│
 ├── src/                             # 前端源码（TypeScript）
 │   ├── extension.ts                 # 扩展入口文件
 │   ├── types.ts                     # TypeScript 类型定义
 │   ├── fileReferenceParser.ts       # 文件引用解析器
 │   │
-│   ├── providers/                   # 功能提供者模块
-│   │   ├── ChatViewProvider.ts      # 聊天视图提供者（主控制器）
-│   │   ├── MessageHandler.ts        # 消息处理器
-│   │   ├── ConfigDatabaseManager.ts # 配置数据库管理
-│   │   ├── SessionExporter.ts       # 会话导出功能
-│   │   ├── FileReferenceHandler.ts  # 文件引用处理
-│   │   └── WebviewContentProvider.ts # Webview 内容提供者
-│   │
-│   ├── webview/                     # Webview UI 资源
-│   │   ├── index.html               # 聊天界面 HTML
-│   │   ├── webview.css              # 样式文件
-│   │   └── webview.js               # 前端交互逻辑
-│   │
-│   └── test/                        # 单元测试
-│       └── extension.test.ts
+│   └── providers/                   # 功能提供者模块
+│       ├── ChatViewProvider.ts      # 聊天视图提供者（主控制器）
+│       ├── MessageHandler.ts        # 消息处理器
+│       ├── ConfigDatabaseManager.ts # 配置数据库管理
+│       ├── SessionExporter.ts       # 会话导出功能
+│       ├── FileReferenceHandler.ts  # 文件引用处理
+│       ├── WebviewContentProvider.ts # Webview 内容提供者
+│       └── BackendManager.ts        # 后端进程管理器
 │
 ├── out/                             # TypeScript 编译输出目录
-├── media/                           # 媒体资源
-│   └── icon.svg                     # 扩展图标
+├── media/                           # 媒体资源和 Webview UI
+│   ├── icon.svg                     # 扩展图标
+│   ├── index.html                   # 聊天界面 HTML
+│   ├── webview.css                  # 样式文件
+│   └── webview.js                   # 前端交互逻辑
 │
 ├── .vscode/                         # VS Code 配置
 │   ├── launch.json                  # 调试配置
@@ -327,18 +442,17 @@ ai-coding-tool/
 │   ├── src/                         # DOSBox 源代码（支持 trace 输出）
 │   └── include/                     # DOSBox 头文件
 │
-├── start-backend.sh                 # 后端启动脚本（macOS/Linux）
-├── start-backend.bat                # 后端启动脚本（Windows）
-├── test_dosbox.sh                   # DOSBox 测试脚本
-│
-├── front_structure.md               # 前端结构说明文档
-├── backend_structure.md             # 后端结构说明文档
+├── build-backend-mac.sh             # Mac 后端打包脚本
+├── build-backend-win.bat            # Windows 后端打包脚本
+├── backend.spec                     # PyInstaller 配置文件
+├── start-backend.bat                # 后端启动脚本（Windows，开发模式）
 │
 ├── package.json                     # Node.js 项目配置
 ├── package-lock.json                # 依赖锁定文件
 ├── tsconfig.json                    # TypeScript 编译配置
 ├── eslint.config.mjs                # ESLint 代码检查配置
 ├── .vscodeignore                    # 打包忽略文件
+├── .gitignore                       # Git 忽略文件
 └── README.md                        # 项目文档
 ```
 
