@@ -43,3 +43,5 @@ config.log
 # Project specific
 CLAUDE.md
 .vscode-test.mjs
+backend-bin/
+DEPLOYMENT_SUMMARY.md
