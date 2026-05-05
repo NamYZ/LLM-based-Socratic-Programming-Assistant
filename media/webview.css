@@ -246,7 +246,7 @@ html, body {
 /* AI消息操作按钮 */
 .message-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin-top: 4px;
   opacity: 1;
   transition: opacity 0.3s ease;
@@ -284,6 +284,25 @@ html, body {
 .message-action-btn svg {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
+}
+
+.message-action-btn.copied {
+  color: #55d38a;
+}
+
+.message-action-btn.copied:hover {
+  color: #55d38a;
+  background: rgba(85, 211, 138, 0.12);
+}
+
+.message-action-btn.export-report-btn {
+  color: var(--accent);
+}
+
+.message-action-btn.export-report-btn:hover {
+  color: #ffffff;
+  background: rgba(0, 122, 204, 0.18);
 }
 
 /* 代码上下文预览 */
@@ -1940,47 +1959,126 @@ html, body {
 }
 
 .progress-bar-wrapper {
-  height: 6px;
+  height: 8px;
   background: rgba(255,255,255,0.1);
-  border-radius: 3px;
+  border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--success));
+  background: var(--accent);
   transition: width 0.3s ease;
-  border-radius: 3px;
+  border-radius: 999px;
 }
 
 .progress-steps {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
 .step-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.step-badge-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.step-index {
   font-size: 11px;
-  background: rgba(255,255,255,0.05);
   color: var(--text-muted);
-  border: 1px solid transparent;
+}
+
+.step-label {
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.step-badge-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.step-status-text {
+  font-size: 11px;
+}
+
+.step-status-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-status-icon svg {
+  width: 15px;
+  height: 15px;
 }
 
 .step-badge.completed {
-  background: rgba(78, 201, 176, 0.2);
-  color: var(--success);
-  border-color: var(--success);
+  background: rgba(73, 185, 120, 0.1);
+  border-color: rgba(73, 185, 120, 0.28);
+}
+
+.step-badge.completed .step-index,
+.step-badge.completed .step-status-text,
+.step-badge.completed .step-status-icon {
+  color: #55d38a;
+}
+
+.step-badge.completed .step-status-icon {
+  background: rgba(73, 185, 120, 0.16);
 }
 
 .step-badge.current {
-  background: rgba(0, 122, 204, 0.3);
+  background: rgba(0, 122, 204, 0.12);
+  border-color: rgba(0, 122, 204, 0.34);
+}
+
+.step-badge.current .step-index,
+.step-badge.current .step-status-text,
+.step-badge.current .step-status-icon {
   color: var(--accent);
-  border-color: var(--accent);
-  font-weight: 600;
+}
+
+.step-badge.current .step-status-icon {
+  background: rgba(0, 122, 204, 0.16);
+}
+
+.step-badge.upcoming {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.step-badge.upcoming .step-index,
+.step-badge.upcoming .step-status-text,
+.step-badge.upcoming .step-status-icon {
+  color: var(--text-muted);
+}
+
+.step-badge.upcoming .step-status-icon {
+  background: rgba(255,255,255,0.08);
 }
 
 /* ===== HINT CONTROL ===== */
@@ -2116,8 +2214,108 @@ html, body {
   color: var(--text-muted);
 }
 
+.profile-summary-card,
 .knowledge-areas {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
   margin-bottom: 24px;
+}
+
+.profile-summary-card {
+  background: linear-gradient(180deg, rgba(0, 122, 204, 0.16), rgba(0, 122, 204, 0.05));
+  border-color: rgba(0, 122, 204, 0.28);
+}
+
+.profile-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-summary-eyebrow {
+  font-size: 11px;
+  color: #9fd4ff;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.profile-summary-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f3f8ff;
+}
+
+.profile-last-updated {
+  font-size: 11px;
+  color: rgba(232, 241, 255, 0.78);
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.profile-summary-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #eef5ff;
+  margin-bottom: 14px;
+}
+
+.profile-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-summary-tag {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #d7ebff;
+}
+
+.profile-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.insight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.insight-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.insight-item {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 
 .area-section {
@@ -2150,6 +2348,13 @@ html, body {
   background: rgba(255, 152, 0, 0.2);
   color: var(--warning);
   border-color: var(--warning);
+}
+
+.error-bank-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
 }
 
 .error-bank-section h4 {
@@ -2214,29 +2419,8 @@ html, body {
 
 /* ===== EXPORT BUTTON ===== */
 .export-report-btn {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 11px;
-  background: var(--success);
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
+  display: inline-flex;
 }
-
-.export-report-btn:hover {
-  background: #3da88f;
-  transform: translateY(-1px);
-}
-
-.export-report-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
 
 /* ===== 任务进度页面样式 ===== */
 .progress-view-body {
@@ -2329,4 +2513,20 @@ html, body {
 #current-hint-level {
   color: var(--accent);
   font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .step-badge {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .step-badge-side {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .profile-summary-header {
+    flex-direction: column;
+  }
 }

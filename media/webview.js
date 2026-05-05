@@ -269,6 +269,48 @@ let streamingRenderFrameId = null;
 let manualHintMode = false;
 let currentHintLevel = 1;
 const API_BASE = 'http://127.0.0.1:5500';
+const REGENERATE_ICON_SVG = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+`;
+const COPY_ICON_SVG = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+`;
+const COPY_SUCCESS_ICON_SVG = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+`;
+const EXPORT_REPORT_ICON_SVG = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M12 15V3" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+`;
+const PROGRESS_STATUS_ICONS = {
+  completed: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `,
+  current: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7v5l3 2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `,
+  upcoming: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9"/>
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+  `
+};
 
 // 模型参数状态
 let modelParams = {
@@ -361,6 +403,307 @@ const presencePenaltyEnabled = document.getElementById('presence-penalty-enabled
 const presetAnswerBtn = document.getElementById('preset-answer');
 const presetGuidedBtn = document.getElementById('preset-guided');
 const presetResetBtn = document.getElementById('preset-reset');
+
+function dedupeList(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function getProgressDisplayText(progressData) {
+  if (!progressData || progressData.total_steps === 0) {
+    return '步骤 0/0';
+  }
+
+  if (progressData.completion_status === 'completed') {
+    return `已完成 ${progressData.total_steps}/${progressData.total_steps}`;
+  }
+
+  return `步骤 ${Math.max(progressData.current_step || 0, progressData.completed_steps || 0)}/${progressData.total_steps}`;
+}
+
+function getProgressStepStatus(progressData, stepNumber) {
+  const completedSteps = typeof progressData.completed_steps === 'number'
+    ? progressData.completed_steps
+    : (progressData.completion_status === 'completed'
+      ? progressData.total_steps
+      : Math.max(0, (progressData.current_step || 0) - 1));
+
+  if (progressData.completion_status === 'completed' || stepNumber <= completedSteps) {
+    return 'completed';
+  }
+
+  if (stepNumber === completedSteps + 1) {
+    return 'current';
+  }
+
+  return 'upcoming';
+}
+
+function renderProgressSteps(progressData) {
+  if (!progressData?.task_steps?.length) {
+    return '';
+  }
+
+  return progressData.task_steps.map((step, idx) => {
+    const stepNumber = idx + 1;
+    const status = getProgressStepStatus(progressData, stepNumber);
+    const statusText = status === 'completed'
+      ? '已完成'
+      : status === 'current'
+        ? '进行中'
+        : '未开始';
+
+    return `
+      <div class="step-badge ${status}">
+        <div class="step-badge-main">
+          <span class="step-index">步骤 ${stepNumber}</span>
+          <span class="step-label">${escapeHtml(step)}</span>
+        </div>
+        <div class="step-badge-side">
+          <span class="step-status-text">${statusText}</span>
+          <span class="step-status-icon" aria-hidden="true">${PROGRESS_STATUS_ICONS[status]}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setCopyButtonCopiedState(copyBtn) {
+  if (!copyBtn) {
+    return;
+  }
+
+  if (copyBtn._copiedStateTimeout) {
+    clearTimeout(copyBtn._copiedStateTimeout);
+  }
+
+  copyBtn.classList.add('copied');
+  copyBtn.title = '已复制';
+  copyBtn.setAttribute('aria-label', '已复制');
+  copyBtn.innerHTML = COPY_SUCCESS_ICON_SVG;
+
+  copyBtn._copiedStateTimeout = setTimeout(() => {
+    copyBtn.classList.remove('copied');
+    copyBtn.title = '复制';
+    copyBtn.setAttribute('aria-label', '复制');
+    copyBtn.innerHTML = COPY_ICON_SVG;
+    copyBtn._copiedStateTimeout = null;
+  }, 1500);
+}
+
+function removeExportButtons() {
+  messagesArea.querySelectorAll('.export-report-btn').forEach(button => button.remove());
+}
+
+function getLastAssistantActions() {
+  const assistantMessages = messagesArea.querySelectorAll('.message.assistant');
+  if (assistantMessages.length === 0) {
+    return null;
+  }
+
+  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+  return lastAssistantMessage.querySelector('.message-actions');
+}
+
+function formatProfileTimestamp(timestamp) {
+  if (!timestamp) {
+    return '开始学习后自动生成';
+  }
+
+  return `${formatTimeAgo(timestamp)}更新`;
+}
+
+function renderAreaTags(container, values, type = 'strong', emptyText = '暂无数据') {
+  if (!container) {
+    return;
+  }
+
+  const uniqueValues = dedupeList(values).slice(0, 6);
+  const tagClassName = type === 'weak' ? 'area-tag weak' : 'area-tag';
+
+  if (uniqueValues.length === 0) {
+    container.innerHTML = `<span class="${tagClassName}">${emptyText}</span>`;
+    return;
+  }
+
+  container.innerHTML = uniqueValues
+    .map(value => `<span class="${tagClassName}">${escapeHtml(value)}</span>`)
+    .join('');
+}
+
+function renderInsightList(container, items, emptyText) {
+  const target = typeof container === 'string' ? document.getElementById(container) : container;
+  if (!target) {
+    return;
+  }
+
+  const validItems = (items || []).filter(Boolean).slice(0, 3);
+  if (validItems.length === 0) {
+    target.innerHTML = `<div class="empty-message">${emptyText}</div>`;
+    return;
+  }
+
+  target.innerHTML = validItems
+    .map(item => `<div class="insight-item">${escapeHtml(item)}</div>`)
+    .join('');
+}
+
+function getDerivedStrongAreas(profile, errorStats) {
+  const strengths = Array.isArray(profile.strong_areas) ? [...profile.strong_areas] : [];
+
+  if ((profile.completed_tasks || 0) > 0) {
+    strengths.push('任务坚持度');
+  }
+  if ((profile.avg_hint_level || 1) <= 1.5 && (profile.total_sessions || 0) > 0) {
+    strengths.push('独立推进');
+  }
+  if ((errorStats.total_errors || 0) <= Math.max(profile.completed_tasks || 0, 1) && (profile.total_sessions || 0) > 0) {
+    strengths.push('自检意识');
+  }
+  if ((profile.completed_tasks || 0) >= 3) {
+    strengths.push('连续完成能力');
+  }
+
+  return dedupeList(strengths);
+}
+
+function getDerivedWeakAreas(profile, errorStats) {
+  const weakAreas = Array.isArray(profile.weak_areas) ? [...profile.weak_areas] : [];
+
+  (errorStats.top_weak_points || []).forEach(item => {
+    if (item?.point) {
+      weakAreas.push(item.point);
+    }
+  });
+
+  return dedupeList(weakAreas);
+}
+
+function getProfileSummary(profile, errorStats, weakAreas) {
+  const totalSessions = profile.total_sessions || 0;
+  const completedTasks = profile.completed_tasks || 0;
+  const completionRate = completedTasks / Math.max(totalSessions, 1);
+  const avgHintLevel = profile.avg_hint_level || 1;
+  const totalErrors = errorStats.total_errors || profile.total_errors || 0;
+
+  if (totalSessions === 0) {
+    return '你还处在学习画像初始化阶段。开始几次需求引导任务后，这里会逐渐形成稳定的学习习惯判断。';
+  }
+
+  if (completionRate >= 0.7 && avgHintLevel <= 1.6) {
+    return '你现在更接近“可独立推进型”学习者，大多数任务已经能在较低提示等级下持续往前做。';
+  }
+
+  if (avgHintLevel >= 2.5) {
+    return '你目前更依赖明确提示，说明方向判断已经建立，但关键指令和细节落地还需要更多外部支撑。';
+  }
+
+  if (totalErrors >= Math.max(completedTasks, 1) * 2) {
+    return `你正在经历“边做边修正”的提升阶段，当前最需要做的是把高频错误集中到 ${weakAreas.slice(0, 2).join('、') || '核心基础知识'} 上逐个击破。`;
+  }
+
+  return '你目前处在稳步推进阶段，已经能完成部分任务，但还需要继续压低错误率，让完成过程更稳定。';
+}
+
+function getProfileSummaryTags(profile, errorStats, weakAreas) {
+  const tags = [];
+  const totalSessions = profile.total_sessions || 0;
+  const completedTasks = profile.completed_tasks || 0;
+  const avgHintLevel = (profile.avg_hint_level || 1).toFixed(1);
+
+  if (totalSessions > 0) {
+    tags.push(`学习 ${totalSessions} 次`);
+  }
+  if (completedTasks > 0) {
+    tags.push(`完成 ${completedTasks} 个任务`);
+  }
+  tags.push(`平均提示 ${avgHintLevel}`);
+
+  if ((errorStats.total_errors || 0) > 0) {
+    tags.push(`累计错误 ${errorStats.total_errors}`);
+  }
+  if (weakAreas.length > 0) {
+    tags.push(`重点补强 ${weakAreas[0]}`);
+  }
+
+  return dedupeList(tags).slice(0, 5);
+}
+
+function getLearningStateInsights(profile, errorStats, weakAreas) {
+  const insights = [];
+  const avgHintLevel = profile.avg_hint_level || 1;
+
+  if ((profile.total_sessions || 0) === 0) {
+    insights.push('当前还没有形成稳定的学习画像，先完成一次完整任务。');
+    return insights;
+  }
+
+  if ((profile.completed_tasks || 0) === 0) {
+    insights.push('已经开始尝试任务，但还没有形成完整闭环，建议先跑通一题到底。');
+  } else {
+    insights.push(`已完成 ${profile.completed_tasks} 个任务，说明你具备持续推进的基础。`);
+  }
+
+  if (avgHintLevel >= 2.5) {
+    insights.push('当前提示依赖偏高，说明你更需要把思路转成可执行的寄存器和指令。');
+  } else if (avgHintLevel <= 1.5) {
+    insights.push('当前能在较低提示等级下推进，独立思考能力相对更稳定。');
+  } else {
+    insights.push('提示使用处在适中区间，说明你正处于从“会看提示”到“会独立实现”的过渡阶段。');
+  }
+
+  if (weakAreas.length > 0) {
+    insights.push(`当前最值得优先补强的是 ${weakAreas.slice(0, 2).join('、')}。`);
+  } else if ((errorStats.total_errors || 0) === 0) {
+    insights.push('暂时没有明显的高频薄弱点，可以开始提高题目复杂度。');
+  }
+
+  return dedupeList(insights);
+}
+
+function getCommonErrorInsights(errorBankData, errorStats) {
+  const insights = [];
+  const categoryStats = errorStats.by_category || [];
+  const topWeakPoints = errorStats.top_weak_points || [];
+  const errors = errorBankData.errors || [];
+
+  if (categoryStats.length > 0) {
+    insights.push(`${categoryStats[0].category} 类错误最频繁，累计 ${categoryStats[0].count} 次。`);
+  }
+  if (errors.length > 0) {
+    const recurringError = errors[0];
+    insights.push(`${recurringError.knowledge_point || recurringError.category} 反复出现，已记录 ${recurringError.count} 次。`);
+  }
+  if (topWeakPoints.length > 0) {
+    insights.push(`高频薄弱点主要集中在 ${topWeakPoints.slice(0, 2).map(item => item.point).join('、')}。`);
+  }
+
+  return dedupeList(insights);
+}
+
+function getNextActionInsights(profile, errorStats, weakAreas) {
+  const insights = [];
+  const avgHintLevel = profile.avg_hint_level || 1;
+
+  if (weakAreas.length > 0) {
+    insights.push(`下一轮优先专项练习 ${weakAreas.slice(0, 2).join('、')}，先压下高频错误。`);
+  }
+  if (avgHintLevel >= 2.5) {
+    insights.push('下次先自己写出关键寄存器和指令，再决定是否把提示等级调高。');
+  } else if ((profile.total_sessions || 0) > 0) {
+    insights.push('保持低提示等级先独立推进，卡住时只补关键一步，不要直接看完整答案。');
+  }
+  if ((errorStats.total_errors || 0) === 0 && (profile.total_sessions || 0) > 0) {
+    insights.push('当前错误控制不错，可以把目标转成“更快完成”和“更完整复盘”。');
+  }
+  if ((profile.completed_tasks || 0) === 0 && (profile.total_sessions || 0) > 0) {
+    insights.push('先完整完成一次需求引导任务，形成从拆解到收尾的整条链路。');
+  }
+  if (insights.length === 0) {
+    insights.push('先开始一次需求引导任务，系统会根据你的过程给出更具体的个性化建议。');
+  }
+
+  return dedupeList(insights);
+}
 
 function cancelStreamingRenderFrame() {
   if (streamingRenderFrameId !== null) {
@@ -586,7 +929,10 @@ modeSelectPanel.addEventListener('click', (e) => {
     if (currentMode === 'assembly_guide' && currentSessionId) {
       updateProgress(currentSessionId);
     } else {
-      document.getElementById('progress-container').style.display = 'none';
+      const progressContainer = document.getElementById('progress-container');
+      if (progressContainer) {
+        progressContainer.style.display = 'none';
+      }
     }
   }
 });
@@ -1197,6 +1543,7 @@ function sendMessage() {
   isStreaming = true;
   updateSendButtonState(true);
   resetStreamingRenderState();
+  removeExportButtons();
 
   // 保存当前的代码上下文（在清空之前）
   const currentCodeContexts = [...codeContexts];
@@ -1372,8 +1719,10 @@ function handleChatChunk(data) {
     }
 
     // 检查是否任务完成，显示导出按钮
-    if (data.completion_status === 'completed' && currentSessionId) {
+    if (currentMode === 'assembly_guide' && data.completion_status === 'completed' && currentSessionId) {
       showExportButton(currentSessionId);
+    } else {
+      removeExportButtons();
     }
 
     messageInput.focus();
@@ -1468,16 +1817,11 @@ function addMessage(role, content, contexts = [], isStreaming = false, options =
     // 如果正在流式传输，初始时隐藏按钮；否则显示按钮（历史消息）
     actionsDiv.className = isStreaming ? 'message-actions hidden' : 'message-actions';
     actionsDiv.innerHTML = `
-      <button class="message-action-btn regenerate-btn" title="重新生成">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+      <button class="message-action-btn regenerate-btn" title="重新回复" aria-label="重新回复">
+        ${REGENERATE_ICON_SVG}
       </button>
-      <button class="message-action-btn copy-btn" title="复制">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>
+      <button class="message-action-btn copy-btn" title="复制" aria-label="复制">
+        ${COPY_ICON_SVG}
       </button>
     `;
     msgDiv.appendChild(actionsDiv);
@@ -1491,9 +1835,14 @@ function addMessage(role, content, contexts = [], isStreaming = false, options =
       regenerateLastMessage();
     });
 
-    copyBtn.addEventListener('click', () => {
+    copyBtn.addEventListener('click', async () => {
       console.log('[Webview] Copy button clicked');
-      copyMessageContent(contentDiv.dataset.rawContent || contentDiv.textContent);
+      const copied = await copyMessageContent(contentDiv.dataset.rawContent || contentDiv.textContent);
+      if (copied) {
+        setCopyButtonCopiedState(copyBtn);
+      } else {
+        showNotification('复制失败', 'error');
+      }
     });
   }
 
@@ -1643,6 +1992,7 @@ function renderSessions(sessions) {
 function loadSessionIntoChat(data) {
   console.log('[Webview] loadSessionIntoChat() called:', data);
   resetStreamingRenderState();
+  removeExportButtons();
 
   // 设置当前会话 ID 和模式，更新模式选择按钮的值
   currentSessionId = data.session?.id || null;
@@ -1678,6 +2028,11 @@ function loadSessionIntoChat(data) {
 
   // 切换回聊天视图
   switchView('chat');
+
+  if (currentMode === 'assembly_guide' && currentSessionId) {
+    updateProgress(currentSessionId);
+    syncSessionCompletionActions(currentSessionId);
+  }
 }
 
 // 显示通知函数 - 在页面上显示一个临时的通知消息
@@ -1748,32 +2103,40 @@ function regenerateLastMessage() {
 }
 
 // 复制消息内容
-function copyMessageContent(content) {
+async function copyMessageContent(content) {
   console.log('[Webview] copyMessageContent() called');
 
   // 使用 Clipboard API 复制文本
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(content).then(() => {
-      console.log('[Webview] Content copied to clipboard');
-    }).catch(err => {
-      console.error('[Webview] Failed to copy:', err);
-    });
-  } else {
-    // 降级方案：使用 execCommand
-    const textarea = document.createElement('textarea');
-    textarea.value = content;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
     try {
-      document.execCommand('copy');
-      console.log('[Webview] Content copied to clipboard (fallback)');
+      await navigator.clipboard.writeText(content);
+      console.log('[Webview] Content copied to clipboard');
+      return true;
     } catch (err) {
-      console.error('[Webview] Failed to copy (fallback):', err);
+      console.error('[Webview] Failed to copy:', err);
     }
+  }
+
+  // 降级方案：使用 execCommand
+  const textarea = document.createElement('textarea');
+  textarea.value = content;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    const success = document.execCommand('copy');
+    if (success) {
+      console.log('[Webview] Content copied to clipboard (fallback)');
+      return true;
+    }
+  } catch (err) {
+    console.error('[Webview] Failed to copy (fallback):', err);
+  } finally {
     document.body.removeChild(textarea);
   }
+
+  return false;
 }
 
 // 添加代码上下文到 UI
@@ -2035,8 +2398,12 @@ function applyPreset(preset) {
 
 // 更新进度显示
 async function updateProgress(sessionId) {
+  const container = document.getElementById('progress-container');
+
   if (!sessionId || currentMode !== 'assembly_guide') {
-    document.getElementById('progress-container').style.display = 'none';
+    if (container) {
+      container.style.display = 'none';
+    }
     return;
   }
 
@@ -2044,10 +2411,15 @@ async function updateProgress(sessionId) {
     const response = await fetch(`${API_BASE}/api/assembly/progress/${sessionId}`);
     const progressData = await response.json();
 
-    const container = document.getElementById('progress-container');
     const progressBar = document.getElementById('progress-bar');
     const progressText = document.getElementById('progress-text');
     const stepsContainer = document.getElementById('progress-steps');
+    const manualHintToggle = document.getElementById('manual-hint-toggle');
+    const hintLevelSlider = document.getElementById('hint-level-slider');
+
+    if (!container || !progressBar || !progressText || !stepsContainer) {
+      return;
+    }
 
     if (!progressData || progressData.total_steps === 0) {
       container.style.display = 'none';
@@ -2055,24 +2427,25 @@ async function updateProgress(sessionId) {
     }
 
     container.style.display = 'block';
+    const completedSteps = typeof progressData.completed_steps === 'number'
+      ? progressData.completed_steps
+      : Math.max(0, progressData.current_step - 1);
     const percentage = progressData.total_steps > 0
-      ? (progressData.current_step / progressData.total_steps) * 100
+      ? (completedSteps / progressData.total_steps) * 100
       : 0;
     progressBar.style.width = percentage + '%';
-    progressText.textContent = `步骤 ${progressData.current_step}/${progressData.total_steps}`;
-
-    // 渲染步骤徽章
-    stepsContainer.innerHTML = progressData.task_steps.map((step, idx) => {
-      const status = idx < progressData.current_step ? 'completed' :
-                    idx === progressData.current_step ? 'current' : '';
-      return `<div class="step-badge ${status}">${idx + 1}. ${step}</div>`;
-    }).join('');
+    progressText.textContent = getProgressDisplayText(progressData);
+    stepsContainer.innerHTML = renderProgressSteps(progressData);
 
     // 更新提示等级显示
     currentHintLevel = progressData.hint_level;
     manualHintMode = progressData.manual_mode;
-    document.getElementById('manual-hint-toggle').checked = manualHintMode;
-    document.getElementById('hint-level-slider').style.display = manualHintMode ? 'flex' : 'none';
+    if (manualHintToggle) {
+      manualHintToggle.checked = manualHintMode;
+    }
+    if (hintLevelSlider) {
+      hintLevelSlider.style.display = manualHintMode ? 'flex' : 'none';
+    }
 
     // 更新提示按钮状态
     document.querySelectorAll('.hint-btn').forEach(btn => {
@@ -2086,9 +2459,16 @@ async function updateProgress(sessionId) {
 
 // 更新进度页面视图
 async function updateProgressView() {
+  const emptyView = document.getElementById('progress-empty-view');
+  const progressContainerFull = document.getElementById('progress-container-full');
+
   if (!currentSessionId || currentMode !== 'assembly_guide') {
-    document.getElementById('progress-empty-view').style.display = 'flex';
-    document.getElementById('progress-container-full').querySelector('.progress-section').style.display = 'none';
+    if (emptyView) {
+      emptyView.style.display = 'flex';
+    }
+    progressContainerFull?.querySelectorAll('.progress-section').forEach(section => {
+      section.style.display = 'none';
+    });
     return;
   }
 
@@ -2096,12 +2476,17 @@ async function updateProgressView() {
     const response = await fetch(`${API_BASE}/api/assembly/progress/${currentSessionId}`);
     const progressData = await response.json();
 
-    const emptyView = document.getElementById('progress-empty-view');
     const progressSections = document.querySelectorAll('#progress-container-full .progress-section');
     const progressBarView = document.getElementById('progress-bar-view');
     const progressTextView = document.getElementById('progress-text-view');
     const stepsContainerView = document.getElementById('progress-steps-view');
     const currentHintLevelSpan = document.getElementById('current-hint-level');
+    const manualHintToggleView = document.getElementById('manual-hint-toggle-view');
+    const hintLevelSliderView = document.getElementById('hint-level-slider-view');
+
+    if (!emptyView || !progressBarView || !progressTextView || !stepsContainerView || !currentHintLevelSpan) {
+      return;
+    }
 
     if (!progressData || progressData.total_steps === 0) {
       emptyView.style.display = 'flex';
@@ -2112,25 +2497,26 @@ async function updateProgressView() {
     emptyView.style.display = 'none';
     progressSections.forEach(section => section.style.display = 'block');
 
+    const completedSteps = typeof progressData.completed_steps === 'number'
+      ? progressData.completed_steps
+      : Math.max(0, progressData.current_step - 1);
     const percentage = progressData.total_steps > 0
-      ? (progressData.current_step / progressData.total_steps) * 100
+      ? (completedSteps / progressData.total_steps) * 100
       : 0;
     progressBarView.style.width = percentage + '%';
-    progressTextView.textContent = `步骤 ${progressData.current_step}/${progressData.total_steps}`;
-
-    // 渲染步骤徽章
-    stepsContainerView.innerHTML = progressData.task_steps.map((step, idx) => {
-      const status = idx < progressData.current_step ? 'completed' :
-                    idx === progressData.current_step ? 'current' : '';
-      return `<div class="step-badge ${status}">${idx + 1}. ${step}</div>`;
-    }).join('');
+    progressTextView.textContent = getProgressDisplayText(progressData);
+    stepsContainerView.innerHTML = renderProgressSteps(progressData);
 
     // 更新提示等级显示
     currentHintLevel = progressData.hint_level;
     manualHintMode = progressData.manual_mode;
     currentHintLevelSpan.textContent = currentHintLevel;
-    document.getElementById('manual-hint-toggle-view').checked = manualHintMode;
-    document.getElementById('hint-level-slider-view').style.display = manualHintMode ? 'flex' : 'none';
+    if (manualHintToggleView) {
+      manualHintToggleView.checked = manualHintMode;
+    }
+    if (hintLevelSliderView) {
+      hintLevelSliderView.style.display = manualHintMode ? 'flex' : 'none';
+    }
 
     // 更新提示按钮状态
     document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(btn => {
@@ -2143,40 +2529,54 @@ async function updateProgressView() {
 }
 
 // 手动提示模式切换（进度页面）
-document.getElementById('manual-hint-toggle-view').addEventListener('change', async (e) => {
-  manualHintMode = e.target.checked;
-  document.getElementById('hint-level-slider-view').style.display = manualHintMode ? 'flex' : 'none';
+const manualHintToggleView = document.getElementById('manual-hint-toggle-view');
+if (manualHintToggleView) {
+  manualHintToggleView.addEventListener('change', async (e) => {
+    manualHintMode = e.target.checked;
+    const slider = document.getElementById('hint-level-slider-view');
+    if (slider) {
+      slider.style.display = manualHintMode ? 'flex' : 'none';
+    }
 
-  if (!currentSessionId) return;
+    if (!currentSessionId) {
+      return;
+    }
 
-  try {
-    await fetch(`${API_BASE}/api/assembly/hint-level`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        session_id: currentSessionId,
-        hint_level: currentHintLevel,
-        manual_mode: manualHintMode
-      })
-    });
-  } catch (error) {
-    console.error('设置提示模式失败:', error);
-  }
-});
+    try {
+      await fetch(`${API_BASE}/api/assembly/hint-level`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          session_id: currentSessionId,
+          hint_level: currentHintLevel,
+          manual_mode: manualHintMode
+        })
+      });
+    } catch (error) {
+      console.error('设置提示模式失败:', error);
+    }
+  });
+}
 
 // 手动提示等级按钮（进度页面）
 document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
-    if (!manualHintMode || !currentSessionId) return;
+    if (!manualHintMode || !currentSessionId) {
+      return;
+    }
 
-    const level = parseInt(btn.dataset.level);
+    const level = parseInt(btn.dataset.level, 10);
     currentHintLevel = level;
 
     document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(b => {
       b.classList.remove('active');
     });
     btn.classList.add('active');
-    document.getElementById('current-hint-level').textContent = level;
+
+    const currentHintLevelLabel = document.getElementById('current-hint-level');
+    if (currentHintLevelLabel) {
+      currentHintLevelLabel.textContent = level;
+    }
 
     try {
       await fetch(`${API_BASE}/api/assembly/hint-level`, {
@@ -2195,36 +2595,46 @@ document.querySelectorAll('#hint-level-slider-view .hint-btn').forEach(btn => {
 });
 
 // 手动提示模式切换
-document.getElementById('manual-hint-toggle').addEventListener('change', async (e) => {
-  manualHintMode = e.target.checked;
-  document.getElementById('hint-level-slider').style.display = manualHintMode ? 'flex' : 'none';
+const manualHintToggle = document.getElementById('manual-hint-toggle');
+if (manualHintToggle) {
+  manualHintToggle.addEventListener('change', async (e) => {
+    manualHintMode = e.target.checked;
+    const slider = document.getElementById('hint-level-slider');
+    if (slider) {
+      slider.style.display = manualHintMode ? 'flex' : 'none';
+    }
 
-  if (!currentSessionId) return;
+    if (!currentSessionId) {
+      return;
+    }
 
-  try {
-    await fetch(`${API_BASE}/api/assembly/hint-level`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        session_id: currentSessionId,
-        manual_mode: manualHintMode,
-        hint_level: currentHintLevel
-      })
-    });
-    showNotification(manualHintMode ? '已启用手动调整模式' : '已关闭手动调整模式');
-  } catch (error) {
-    console.error('设置手动模式失败:', error);
-    showNotification('设置失败', 'error');
-  }
-});
+    try {
+      await fetch(`${API_BASE}/api/assembly/hint-level`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          session_id: currentSessionId,
+          manual_mode: manualHintMode,
+          hint_level: currentHintLevel
+        })
+      });
+      showNotification(manualHintMode ? '已启用手动调整模式' : '已关闭手动调整模式');
+    } catch (error) {
+      console.error('设置手动模式失败:', error);
+      showNotification('设置失败', 'error');
+    }
+  });
+}
 
 // 提示等级按钮点击
-document.querySelectorAll('.hint-btn').forEach(btn => {
+document.querySelectorAll('#hint-level-slider .hint-btn').forEach(btn => {
   btn.addEventListener('click', async (e) => {
-    if (!manualHintMode || !currentSessionId) return;
+    if (!manualHintMode || !currentSessionId) {
+      return;
+    }
 
-    currentHintLevel = parseInt(e.target.dataset.level);
-    document.querySelectorAll('.hint-btn').forEach(b => b.classList.remove('active'));
+    currentHintLevel = parseInt(e.target.dataset.level, 10);
+    document.querySelectorAll('#hint-level-slider .hint-btn').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
 
     try {
@@ -2263,77 +2673,109 @@ async function exportReport(sessionId, format = 'json') {
   }
 }
 
+async function syncSessionCompletionActions(sessionId) {
+  removeExportButtons();
+
+  if (!sessionId || currentMode !== 'assembly_guide') {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/assembly/progress/${sessionId}`);
+    const progressData = await response.json();
+    if (progressData?.completion_status === 'completed') {
+      showExportButton(sessionId);
+    }
+  } catch (error) {
+    console.error('同步导出按钮失败:', error);
+  }
+}
+
 // 显示导出按钮
 function showExportButton(sessionId) {
-  // 在消息区域添加导出按钮
-  const exportBtn = document.createElement('button');
-  exportBtn.className = 'export-report-btn';
-  exportBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-    </svg>
-    导出学习报告
-  `;
-  exportBtn.onclick = () => exportReport(sessionId);
-
-  // 添加到消息区域底部
-  const messagesArea = document.getElementById('messages-area');
-  const existingBtn = messagesArea.querySelector('.export-report-btn');
-  if (existingBtn) {
-    existingBtn.remove();
+  if (!sessionId || currentMode !== 'assembly_guide') {
+    return;
   }
-  messagesArea.appendChild(exportBtn);
-  exportBtn.style.display = 'inline-flex';
+
+  const actionsDiv = getLastAssistantActions();
+  if (!actionsDiv) {
+    return;
+  }
+
+  removeExportButtons();
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'message-action-btn export-report-btn';
+  exportBtn.title = '导出学习报告';
+  exportBtn.setAttribute('aria-label', '导出学习报告');
+  exportBtn.innerHTML = EXPORT_REPORT_ICON_SVG;
+  exportBtn.addEventListener('click', () => exportReport(sessionId));
+  actionsDiv.appendChild(exportBtn);
 }
 
 // 加载用户画像
 async function loadUserProfile() {
   try {
+    await fetch(`${API_BASE}/api/assembly/profile/update`, { method: 'POST' }).catch(() => null);
+
     const [profileRes, errorBankRes] = await Promise.all([
       fetch(`${API_BASE}/api/assembly/profile`),
       fetch(`${API_BASE}/api/assembly/error-bank`)
     ]);
 
+    if (!profileRes.ok || !errorBankRes.ok) {
+      throw new Error('用户画像接口返回失败');
+    }
+
     const profile = await profileRes.json();
     const errorBankData = await errorBankRes.json();
+    const errorStats = errorBankData.statistics || profile.error_statistics || { total_errors: 0, by_category: [], top_weak_points: [] };
+    const strongAreas = getDerivedStrongAreas(profile, errorStats);
+    const weakAreas = getDerivedWeakAreas(profile, errorStats);
+    const profileSummary = getProfileSummary(profile, errorStats, weakAreas);
+    const profileSummaryTags = getProfileSummaryTags(profile, errorStats, weakAreas);
 
     // 更新统计数据
     document.getElementById('total-sessions').textContent = profile.total_sessions || 0;
     document.getElementById('completed-tasks').textContent = profile.completed_tasks || 0;
-    document.getElementById('total-errors').textContent = profile.total_errors || 0;
+    document.getElementById('total-errors').textContent = errorStats.total_errors || profile.total_errors || 0;
     document.getElementById('avg-hint-level').textContent = (profile.avg_hint_level || 1.0).toFixed(1);
 
-    // 渲染擅长领域
-    const strongAreasEl = document.getElementById('strong-areas');
-    if (profile.strong_areas && profile.strong_areas.length > 0) {
-      strongAreasEl.innerHTML = profile.strong_areas.map(area =>
-        `<span class="area-tag">${area}</span>`
-      ).join('');
-    } else {
-      strongAreasEl.innerHTML = '<span class="area-tag">暂无数据</span>';
+    const profileLastUpdated = document.getElementById('profile-last-updated');
+    if (profileLastUpdated) {
+      profileLastUpdated.textContent = formatProfileTimestamp(profile.last_updated);
     }
 
-    // 渲染薄弱环节
-    const weakAreasEl = document.getElementById('weak-areas');
-    if (profile.weak_areas && profile.weak_areas.length > 0) {
-      weakAreasEl.innerHTML = profile.weak_areas.map(area =>
-        `<span class="area-tag weak">${area}</span>`
-      ).join('');
-    } else {
-      weakAreasEl.innerHTML = '<span class="area-tag weak">暂无数据</span>';
+    const profileSummaryText = document.getElementById('profile-summary-text');
+    if (profileSummaryText) {
+      profileSummaryText.textContent = profileSummary;
     }
+
+    const profileSummaryTagsEl = document.getElementById('profile-summary-tags');
+    if (profileSummaryTagsEl) {
+      profileSummaryTagsEl.innerHTML = profileSummaryTags.length > 0
+        ? profileSummaryTags.map(tag => `<span class="profile-summary-tag">${escapeHtml(tag)}</span>`).join('')
+        : '<span class="profile-summary-tag">等待学习数据</span>';
+    }
+
+    renderInsightList('profile-learning-state', getLearningStateInsights(profile, errorStats, weakAreas), '暂无学习状态分析');
+    renderInsightList('profile-common-errors', getCommonErrorInsights(errorBankData, errorStats), '暂无错误分析');
+    renderInsightList('profile-next-actions', getNextActionInsights(profile, errorStats, weakAreas), '完成任务后这里会给出建议');
+
+    renderAreaTags(document.getElementById('strong-areas'), strongAreas, 'strong', '等待更多完成记录');
+    renderAreaTags(document.getElementById('weak-areas'), weakAreas, 'weak', '暂无明显薄弱点');
 
     // 渲染错题库
     const errorListEl = document.getElementById('error-bank-list');
     if (errorBankData.errors && errorBankData.errors.length > 0) {
-      errorListEl.innerHTML = errorBankData.errors.map(error => `
+      errorListEl.innerHTML = errorBankData.errors.slice(0, 6).map(error => `
         <div class="error-item">
           <div class="error-item-header">
-            <span class="error-category">${error.category}</span>
+            <span class="error-category">${escapeHtml(error.category || '未分类')}</span>
             <span class="error-count">出现 ${error.count} 次</span>
           </div>
-          <div class="error-description">${error.description || '无描述'}</div>
-          <div class="error-knowledge">知识点: ${error.knowledge_point}</div>
+          <div class="error-description">${escapeHtml(error.description || '无描述')}</div>
+          <div class="error-knowledge">知识点: ${escapeHtml(error.knowledge_point || '待补充')}</div>
         </div>
       `).join('');
     } else {

@@ -149,12 +149,13 @@ class LearningReportGenerator:
         task_steps = agent_state.get('task_steps', [])
         current_step = agent_state.get('current_step', 0)
         total_steps = len(task_steps)
+        completed_steps = total_steps if agent_state.get('completion_status') == 'completed' else max(0, current_step - 1)
 
         return {
             'requirement': agent_state.get('requirement', ''),
             'total_steps': total_steps,
-            'completed_steps': current_step,
-            'completion_rate': round(current_step / total_steps * 100, 2) if total_steps > 0 else 0,
+            'completed_steps': completed_steps,
+            'completion_rate': round(completed_steps / total_steps * 100, 2) if total_steps > 0 else 0,
             'completion_status': agent_state.get('completion_status', 'in_progress'),
             'task_steps': task_steps,
             'current_step_index': current_step
@@ -313,7 +314,10 @@ class LearningReportGenerator:
         recommendations = []
 
         # 基于完成率
-        completion_rate = agent_state.get('current_step', 0) / max(len(agent_state.get('task_steps', [])), 1)
+        total_steps = max(len(agent_state.get('task_steps', [])), 1)
+        current_step = agent_state.get('current_step', 0)
+        completed_steps = len(agent_state.get('task_steps', [])) if agent_state.get('completion_status') == 'completed' else max(0, current_step - 1)
+        completion_rate = completed_steps / total_steps
         if completion_rate < 0.5:
             recommendations.append('建议继续完成当前任务，巩固基础知识')
         elif completion_rate >= 1.0:

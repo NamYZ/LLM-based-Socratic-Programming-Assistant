@@ -13,7 +13,8 @@ from .prompts.tool_prompts import (
     TASK_DECOMPOSER_PROMPT,
     CODE_VALIDATOR_PROMPT,
     PROGRESS_EVALUATOR_PROMPT,
-    HINT_GENERATOR_PROMPT
+    HINT_GENERATOR_PROMPT,
+    CONFUSION_ANALYZER_PROMPT
 )
 
 
@@ -45,6 +46,12 @@ class HintGeneratorInput(BaseModel):
 class GetStateInput(BaseModel):
     """Input schema for get_state tool"""
     info_type: str = Field(description="要获取的状态信息类型: 'all', 'hint_level', 'current_step', 'user_code', 'task_steps', 'requirement'")
+
+
+class ConfusionAnalyzerInput(BaseModel):
+    """Input schema for confusion_analyzer tool"""
+    user_message: str = Field(description="学生最新一轮的回答内容")
+    mode: str = Field(description="当前模式 (requirement_guide 或 code_check)")
 
 
 def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str], state_manager, session_id: int) -> List:
@@ -171,7 +178,13 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
 
             # 返回验证结果的文本描述（不直接暴露给学生）
             status = "基本正确" if result.get("is_valid", False) else "存在问题"
-            return f"代码验证完成: {status}\n错误类型: {result.get('error_type', 'none')}\n引导方向: {result.get('suggestions_direction', '')}"
+            return (
+                f"代码验证完成: {status}\n"
+                f"错误类型: {result.get('error_type', 'none')}\n"
+                f"错误类别: {result.get('error_category', '')}\n"
+                f"严重程度: {result.get('severity', 'unknown')}\n"
+                f"建议方向: {result.get('suggestion', '')}"
+            )
         except Exception as e:
             return f"代码验证失败: {str(e)}"
 
@@ -231,7 +244,9 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
                         state_manager.mark_completed(session_id)
                         return f"恭喜！所有步骤已完成！任务已成功完成。"
 
-                    return f"当前步骤已完成！已自动进入下一步: {task_steps[updated_state['current_step']]}"
+                    next_step_index = updated_state['current_step'] - 1
+                    next_step_desc = task_steps[next_step_index] if 0 <= next_step_index < len(task_steps) else "未知步骤"
+                    return f"当前步骤已完成！已自动进入下一步: {next_step_desc}"
                 elif state and state['current_step'] >= len(task_steps):
                     # 已经是最后一步，标记为完成
                     state_manager.mark_completed(session_id)
@@ -264,12 +279,105 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
         except Exception as e:
             return "请仔细思考一下，你的代码实现了什么功能？"
 
+    # ===== Confusion Analyzer Tool =====
+    def confusion_analyzer_func(user_message: str, mode: str) -> str:
+        """分析学生是否困惑，并决定是否需要提升提示等级"""
+        state = state_manager.get_state(session_id)
+        if not state:
+            return "错误：会话状态不存在，无法分析困惑状态"
+
+        conversation_context = state.get('conversation_context', {}) or {}
+        turns = conversation_context.get('turns', [])
+        recent_turns = "\n".join([
+            f"- 学生: {turn.get('user', '')}\n  助手: {turn.get('assistant', '')}"
+            for turn in turns[-3:]
+        ]) if turns else "（无）"
+
+        task_steps = state.get('task_steps', [])
+        current_step = state.get('current_step', 0)
+        current_step_desc = (
+            task_steps[current_step - 1]
+            if task_steps and 0 < current_step <= len(task_steps)
+            else "当前这一步"
+        )
+
+        prompt = CONFUSION_ANALYZER_PROMPT.format(
+            user_message=user_message,
+            recent_turns=recent_turns,
+            last_agent_reply=conversation_context.get('last_agent_reply', '（无）'),
+            current_step_desc=current_step_desc,
+            mode_name="需求引导模式" if mode == "requirement_guide" else "代码检查模式",
+            current_hint_level=state.get('hint_level', 1),
+            confusion_count=conversation_context.get('confusion_count', 0)
+        )
+
+        try:
+            response = llm.invoke(prompt)
+            content = response.content.strip()
+
+            if "```json" in content:
+                json_str = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                json_str = content.split("```")[1].split("```")[0].strip()
+            else:
+                json_str = content
+
+            result = json.loads(json_str)
+
+            status = result.get("status", "clear")
+            should_increase = bool(result.get("should_increase", False))
+            suggested_hint_level = int(result.get("suggested_hint_level", state.get('hint_level', 1)))
+            reason = result.get("reason", "")
+            guidance_strategy = result.get("guidance_strategy", "")
+            focus_area = result.get("focus_area", "")
+
+            current_hint_level = state.get('hint_level', 1)
+            confusion_count = conversation_context.get('confusion_count', 0)
+
+            if status == "confused":
+                confusion_count += 1
+            elif status == "partially_confused":
+                confusion_count = max(confusion_count, 1)
+            else:
+                confusion_count = 0
+
+            if should_increase and not state.get('hint_level_manual_mode'):
+                state_manager.set_hint_level(session_id, suggested_hint_level)
+
+            updated_state = state_manager.get_state(session_id) or state
+            updated_context = dict(conversation_context)
+            updated_context['confusion_count'] = confusion_count
+            updated_context['last_confusion_status'] = status
+            updated_context['last_confusion_reason'] = reason
+            updated_context['last_guidance_strategy'] = guidance_strategy
+            state_manager.update_conversation_context(session_id, updated_context)
+
+            return (
+                f"困惑分析完成\n"
+                f"状态: {status}\n"
+                f"原因: {reason}\n"
+                f"是否提升: {'是' if should_increase else '否'}\n"
+                f"原提示等级: {current_hint_level}\n"
+                f"当前提示等级: {updated_state.get('hint_level', current_hint_level)}\n"
+                f"建议策略: {guidance_strategy}\n"
+                f"追问方向: {focus_area}"
+            )
+        except Exception as e:
+            return f"困惑分析失败: {str(e)}"
+
     # ===== Get State Tool =====
     def get_state_func(info_type: str) -> str:
         """获取当前会话状态信息"""
         state = state_manager.get_state(session_id)
         if not state:
             return "会话状态不存在"
+
+        conversation_context = state.get('conversation_context', {}) or {}
+        turns = conversation_context.get('turns', [])
+        turns_summary = "\n".join([
+            f"- 用户: {turn.get('user', '')}\n  助手: {turn.get('assistant', '')}"
+            for turn in turns[-3:]
+        ]) if turns else "（无）"
 
         if info_type == "all":
             return f"""当前会话状态:
@@ -278,6 +386,10 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
 - Hint Level: {state['hint_level']}
 - 是否有代码: {'是' if state['user_code'] else '否'}
 - 任务步骤数: {len(state['task_steps'])}
+- 最近困惑状态: {conversation_context.get('last_confusion_status', '无')}
+- 最近引导策略: {conversation_context.get('last_guidance_strategy', '无')}
+- 最近对话:
+{turns_summary}
 """
         elif info_type == "hint_level":
             return f"当前Hint Level: {state['hint_level']}"
@@ -292,6 +404,8 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
             return "任务步骤尚未拆解"
         elif info_type == "requirement":
             return f"需求: {state['requirement']}"
+        elif info_type == "conversation_context":
+            return json.dumps(conversation_context, ensure_ascii=False, indent=2)
         else:
             return f"未知的信息类型: {info_type}"
 
@@ -320,6 +434,12 @@ def create_langchain_tools(api_key: str, model_name: str, base_url: Optional[str
             name="hint_generator",
             description="根据当前上下文和hint_level生成苏格拉底式引导问题。这是你与学生交互的主要方式。必须传入：context（上下文文本）、hint_level（提示等级）、mode（模式）、focus_area（引导方向）。",
             args_schema=HintGeneratorInput
+        ),
+        StructuredTool.from_function(
+            func=confusion_analyzer_func,
+            name="confusion_analyzer",
+            description="分析学生最新回答是否体现出困惑、是否需要提升引导的明显度，并给出下一轮的引导策略。会结合最近对话和当前步骤进行判断。",
+            args_schema=ConfusionAnalyzerInput
         ),
         StructuredTool.from_function(
             func=get_state_func,

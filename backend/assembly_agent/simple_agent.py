@@ -2,7 +2,7 @@
 简化的 Agent 实现 - 不使用 LangChain 的 create_agent - 手动实现工具调用循环，完全控制消息处理
 """
 
-from typing import Dict, Any, Optional, AsyncIterator
+from typing import Dict, Any, Optional, AsyncIterator, List
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import json
 import re
@@ -209,20 +209,16 @@ class AssemblyTeachingAgentSimple:
                 "content": f"📌 会话模式: {'需求引导' if mode == 'requirement_guide' else '代码检查'}"
             }
 
-            # 检测用户是否主动放弃（自动增加提示等级）
-            if self._detect_give_up(user_message):
-                yield {
-                    "type": "status",
-                    "content": "💡 检测到困惑，提升引导明确度..."
-                }
-                self.state_manager.increase_hint_level(session_id)
-                state = self.state_manager.get_state(session_id)
+            raw_user_message = self._strip_context_sections(user_message)
+            conversation_context = self._ensure_conversation_context(
+                state.get('conversation_context')
+            )
 
             # 检测用户是否已经理解了问题
-            user_understood = self._detect_understanding(user_message)
+            user_understood = self._detect_understanding(raw_user_message)
 
             # 检测用户是否在确认代码正确性
-            user_asking_confirmation = self._detect_confirmation(user_message)
+            user_asking_confirmation = self._detect_confirmation(raw_user_message)
 
             # 更新用户代码（优先使用消息中的代码块，其次使用当前编辑器代码）
             code = self._extract_code(user_message)
@@ -242,6 +238,13 @@ class AssemblyTeachingAgentSimple:
                 self.state_manager.update_code(session_id, current_code)
                 state['user_code'] = current_code
 
+            recent_turns_text = self._format_recent_turns(conversation_context.get('turns', []))
+            last_agent_reply = conversation_context.get('last_agent_reply', '')
+            repeated_follow_up = self._is_repeated_follow_up(
+                raw_user_message,
+                conversation_context
+            )
+
             # 创建工具
             tools = create_langchain_tools(
                 api_key=self.api_key,
@@ -251,10 +254,42 @@ class AssemblyTeachingAgentSimple:
                 session_id=session_id
             )
 
+            tool_map = {tool.name: tool for tool in tools}
+
+            confusion_detected = False
+            confusion_strategy = ""
+            confusion_focus_area = ""
+            if raw_user_message and 'confusion_analyzer' in tool_map:
+                yield {
+                    "type": "status",
+                    "content": "🧭 分析学生回答是否体现困惑..."
+                }
+                confusion_result = tool_map['confusion_analyzer'].invoke({
+                    "user_message": raw_user_message,
+                    "mode": mode
+                })
+                yield {
+                    "type": "status",
+                    "content": f"✅ 困惑分析完成: {confusion_result.splitlines()[1] if len(confusion_result.splitlines()) > 1 else confusion_result}"
+                }
+                state = self.state_manager.get_state(session_id) or state
+                conversation_context = self._ensure_conversation_context(
+                    state.get('conversation_context')
+                )
+                confusion_status = conversation_context.get('last_confusion_status', '')
+                confusion_detected = confusion_status in {'confused', 'partially_confused'}
+                confusion_strategy = conversation_context.get('last_guidance_strategy', '')
+                confusion_focus_area = self._extract_confusion_focus_area(confusion_result)
+                if confusion_status == 'confused':
+                    yield {
+                        "type": "status",
+                        "content": "💡 检测到困惑，已提高后续引导明确度"
+                    }
+
             # 根据模式过滤工具
             if mode == "code_check":
-                # 代码检查模式：只允许使用 code_validator, hint_generator, get_state
-                allowed_tools = ["code_validator", "hint_generator", "get_state"]
+                # 代码检查模式：只允许使用 code_validator, hint_generator, confusion_analyzer, get_state
+                allowed_tools = ["code_validator", "hint_generator", "confusion_analyzer", "get_state"]
                 tools = [tool for tool in tools if tool.name in allowed_tools]
             elif mode == "requirement_guide":
                 # 需求引导模式：允许使用所有工具
@@ -269,7 +304,7 @@ class AssemblyTeachingAgentSimple:
             if mode == "requirement_guide":
                 mode_prompt = REQUIREMENT_GUIDE_PROMPT.format(
                     task_steps="\n".join([f"{i+1}. {step}" for i, step in enumerate(state['task_steps'])]) if state['task_steps'] else "（尚未拆解任务）",
-                    current_step=state['current_step'],
+                    current_step=max(state['current_step'], 1) if state['task_steps'] else 0,
                     total_steps=len(state['task_steps']),
                     current_step_description=state['task_steps'][state['current_step']-1] if state['task_steps'] and 0 < state['current_step'] <= len(state['task_steps']) else "（等待任务拆解）",
                     user_code=state['user_code'] or "（学生尚未提交代码）"
@@ -290,6 +325,7 @@ class AssemblyTeachingAgentSimple:
 你只能使用以下工具：
 - code_validator: 验证用户代码的语法、逻辑和语义正确性
 - hint_generator: 根据当前上下文和 hint_level 生成引导性问题
+- confusion_analyzer: 分析学生回答是否体现困惑，决定是否提升提示明显度
 - get_state: 获取当前会话状态信息
 
 注意：代码检查模式下不能使用 task_decomposer 和 progress_evaluator 工具。
@@ -306,6 +342,7 @@ class AssemblyTeachingAgentSimple:
 你可以使用以下工具：
 - code_validator: 验证用户代码的语法、逻辑和语义正确性
 - hint_generator: 根据当前上下文和 hint_level 生成引导性问题
+- confusion_analyzer: 分析学生回答是否体现困惑，决定是否提升提示明显度
 - progress_evaluator: 评估当前步骤是否完成，是否可以进入下一步
 - get_state: 获取当前会话状态信息
 
@@ -320,6 +357,7 @@ class AssemblyTeachingAgentSimple:
 - task_decomposer: 将用户需求拆解为具体的实现步骤（仅在任务未分解时使用一次）
 - code_validator: 验证用户代码的语法、逻辑和语义正确性
 - hint_generator: 根据当前上下文和 hint_level 生成引导性问题
+- confusion_analyzer: 分析学生回答是否体现困惑，决定是否提升提示明显度
 - progress_evaluator: 评估当前步骤是否完成，是否可以进入下一步
 - get_state: 获取当前会话状态信息
 
@@ -352,25 +390,34 @@ Action Input: {{}}
 Action: hint_generator
 Action Input: {{"context": "学生想了解变量定义", "hint_level": 1, "mode": "requirement_guide", "focus_area": "数据段定义"}}
 
+Action: confusion_analyzer
+Action Input: {{"user_message": "我不太明白为什么这里要用 CX", "mode": "code_check"}}
+
 # 重要：何时让用户写代码 vs 何时提问
 
 直接让用户写代码的情况（不要提问）：
 1. 刚拆解完任务步骤后 → 说"现在请完成第一步的代码实现"
 2. 当前步骤完成，进入下一步 → 说"很好！请继续完成下一步的代码"
-3. 学生回答了问题但还没写代码 → 说"请开始实现这一步的代码"
-4. 学生还没有开始写代码 → 说"请开始实现这一步的代码"
+3. 学生已经准确回答了上一个引导问题，而且下一步动作明确 → 说"请开始实现这一步的代码"
+4. 学生还没有开始写代码，且当前并不需要进一步澄清思路 → 说"请开始实现这一步的代码"
 
 通过问题引导的情况：
 1. 学生提交了代码但有错误 → 使用 hint_generator 生成引导问题
 2. 学生的实现思路有问题 → 使用 hint_generator 生成引导问题
+3. 学生回答了你上一轮的问题，但回答只完成了一部分推理 → 先肯定已答对的部分，再继续追问下一个更具体的问题
+4. 如果学生已经回应上一轮问题，绝对不要原样重复上一轮问题；必须基于学生的新回答推进
 
 记住：不要在让用户写代码的时候同时提问！
 """
 
             # 构建用户输入
-            user_input = f"学生消息: {user_message}"
+            user_input = f"学生消息: {raw_user_message}"
             if state['user_code']:
                 user_input += f"\n\n学生代码:\n```asm\n{state['user_code']}\n```"
+            if recent_turns_text:
+                user_input += f"\n\n最近对话:\n{recent_turns_text}"
+            if last_agent_reply:
+                user_input += f"\n\n上一轮你的引导:\n{last_agent_reply}"
 
             # 如果检测到学生已经理解问题，添加提示
             if user_understood:
@@ -382,6 +429,15 @@ Action Input: {{"context": "学生想了解变量定义", "hint_level": 1, "mode
 
             # 添加引导提示：如果学生回答了问题，要先肯定再继续
             user_input += f"\n\n[重要提示：如果学生的回答是正确的或有道理的，必须先简短肯定（'对'、'正确'、'是的'），然后再继续引导。不要无视学生的回答直接提问]"
+            user_input += f"\n\n[重要提示：如果学生已经对上一轮问题作出了回应，你必须承接他的回答继续推进，不能把上一轮问题原样再问一遍]"
+            if repeated_follow_up:
+                user_input += f"\n\n[系统提示：学生已经回答过上一轮引导点。禁止重复上一轮问题，请换一个更具体、更推进一步的问题，或者直接让学生修改代码]"
+            if confusion_detected:
+                user_input += f"\n\n[系统提示：学生当前感到困惑。请提高引导明确度，必要时从方向性问题升级到具体细节问题]"
+            if confusion_strategy:
+                user_input += f"\n\n[系统提示：困惑分析建议的引导策略：{confusion_strategy}]"
+            if confusion_focus_area:
+                user_input += f"\n\n[系统提示：困惑分析建议重点追问方向：{confusion_focus_area}]"
 
             # 运行简化的 Agent
             yield {
@@ -390,9 +446,31 @@ Action Input: {{"context": "学生想了解变量定义", "hint_level": 1, "mode
             }
 
             agent = SimpleReActAgent(self.llm, tools, system_prompt)
+            final_reply = ""
 
             async for chunk in agent.run(user_input):
+                if chunk.get('type') == 'content':
+                    reply_text = chunk.get('content', '')
+                    latest_state = self.state_manager.get_state(session_id) or state
+                    if self._looks_like_repeat(reply_text, last_agent_reply):
+                        chunk['content'] = self._rewrite_repeated_reply(
+                            reply_text,
+                            conversation_context,
+                            latest_state
+                        )
+                    final_reply = chunk.get('content', '')
                 yield chunk
+
+            if final_reply:
+                latest_state = self.state_manager.get_state(session_id) or state
+                updated_context = self._build_updated_conversation_context(
+                    conversation_context=conversation_context,
+                    user_message=raw_user_message,
+                    assistant_reply=final_reply,
+                    current_step=latest_state.get('current_step', 0),
+                    hint_level=latest_state.get('hint_level', 1)
+                )
+                self.state_manager.update_conversation_context(session_id, updated_context)
 
             yield {
                 "type": "done",
@@ -424,16 +502,156 @@ Action Input: {{"context": "学生想了解变量定义", "hint_level": 1, "mode
                     return code.strip()
         return None
 
-    def _detect_give_up(self, message: str) -> bool:
-        """检测用户是否主动放弃"""
-        give_up_keywords = [
-            "不知道", "不会", "告诉我", "直接给我",
-            "答案是什么", "怎么写", "帮我写",
-            "不清楚", "不懂", "不明白", "看不懂",
-            "不理解", "没思路", "不太懂"
+    def _strip_context_sections(self, message: str) -> str:
+        """去除前端自动拼接的上下文，只保留用户原始输入"""
+        separators = [
+            "\n\n[引用的文件]",
+            "\n\n[手动添加的代码上下文]",
+            "\n\n[当前编辑器文件]"
         ]
-        message_lower = message.lower()
-        return any(keyword in message_lower for keyword in give_up_keywords)
+
+        clean_message = message
+        cut_positions = [clean_message.find(separator) for separator in separators if separator in clean_message]
+        if cut_positions:
+            clean_message = clean_message[:min(cut_positions)]
+
+        return clean_message.strip()
+
+    def _ensure_conversation_context(self, context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """确保对话上下文字段完整"""
+        default_context = {
+            'turns': [],
+            'last_user_message': '',
+            'last_agent_reply': '',
+            'last_step': 0,
+            'last_hint_level': 1,
+            'confusion_count': 0,
+            'repeat_reply_count': 0,
+            'last_confusion_status': '',
+            'last_confusion_reason': '',
+            'last_guidance_strategy': ''
+        }
+
+        if not isinstance(context, dict):
+            return default_context
+
+        merged = default_context.copy()
+        merged.update(context)
+        if not isinstance(merged.get('turns'), list):
+            merged['turns'] = []
+        return merged
+
+    def _format_recent_turns(self, turns: List[Dict[str, Any]]) -> str:
+        """格式化最近几轮对话摘要"""
+        if not turns:
+            return ""
+
+        lines = []
+        for turn in turns[-3:]:
+            user_text = turn.get('user', '')
+            assistant_text = turn.get('assistant', '')
+            lines.append(f"- 学生: {user_text}")
+            lines.append(f"  助手: {assistant_text}")
+        return "\n".join(lines)
+
+    def _is_repeated_follow_up(self, user_message: str, conversation_context: Dict[str, Any]) -> bool:
+        """判断学生是否已经回应过上一轮引导点"""
+        last_agent_reply = conversation_context.get('last_agent_reply', '').strip()
+        last_user_message = conversation_context.get('last_user_message', '').strip()
+        current_user_message = user_message.strip()
+
+        if not last_agent_reply or not current_user_message:
+            return False
+
+        if current_user_message == last_user_message:
+            return False
+
+        return True
+
+    def _normalize_text(self, text: str) -> str:
+        """简化文本用于重复度比较"""
+        return re.sub(r'[\s，。？！,.!?:：；"\']+', '', text or '').lower()
+
+    def _looks_like_repeat(self, reply: str, last_reply: str) -> bool:
+        """判断回复是否近似重复上一轮引导"""
+        if not reply or not last_reply:
+            return False
+
+        normalized_reply = self._normalize_text(reply)
+        normalized_last = self._normalize_text(last_reply)
+        if not normalized_reply or not normalized_last:
+            return False
+
+        if normalized_reply == normalized_last:
+            return True
+
+        shorter, longer = sorted([normalized_reply, normalized_last], key=len)
+        return len(shorter) >= 8 and shorter in longer
+
+    def _rewrite_repeated_reply(
+        self,
+        reply: str,
+        conversation_context: Dict[str, Any],
+        state: Dict[str, Any]
+    ) -> str:
+        """在模型重复追问时，使用状态信息生成一个更推进的兜底回复"""
+        hint_level = state.get('hint_level', 1)
+        current_step = state.get('current_step', 0)
+        task_steps = state.get('task_steps', [])
+        current_step_desc = (
+            task_steps[current_step - 1]
+            if task_steps and 0 < current_step <= len(task_steps)
+            else "当前这一步"
+        )
+        last_user_message = conversation_context.get('last_user_message', '')
+
+        if self._detect_understanding(last_user_message):
+            return "对。现在请直接修改这一步的代码。"
+
+        if hint_level >= 3:
+            return f"别重复原问题，直接看{current_step_desc}里最关键的那条指令会把什么值写进去？"
+        if hint_level == 2:
+            return f"对了一部分。再往前推进一步：{current_step_desc}里下一条关键指令会改变哪个寄存器？"
+        return f"先别重复原问题。你刚才的回答说明了什么，再往下会影响{current_step_desc}里的哪一步？"
+
+    def _build_updated_conversation_context(
+        self,
+        conversation_context: Dict[str, Any],
+        user_message: str,
+        assistant_reply: str,
+        current_step: int,
+        hint_level: int
+    ) -> Dict[str, Any]:
+        """更新结构化对话上下文"""
+        turns = list(conversation_context.get('turns', []))
+        turns.append({
+            'user': user_message[:200],
+            'assistant': assistant_reply[:200]
+        })
+
+        repeat_reply_count = conversation_context.get('repeat_reply_count', 0)
+        if self._looks_like_repeat(assistant_reply, conversation_context.get('last_agent_reply', '')):
+            repeat_reply_count += 1
+        else:
+            repeat_reply_count = 0
+
+        return {
+            'turns': turns[-8:],
+            'last_user_message': user_message[:500],
+            'last_agent_reply': assistant_reply[:500],
+            'last_step': current_step,
+            'last_hint_level': hint_level,
+            'confusion_count': conversation_context.get('confusion_count', 0),
+            'repeat_reply_count': repeat_reply_count,
+            'last_confusion_status': conversation_context.get('last_confusion_status', ''),
+            'last_confusion_reason': conversation_context.get('last_confusion_reason', ''),
+            'last_guidance_strategy': conversation_context.get('last_guidance_strategy', '')
+        }
+
+    def _extract_confusion_focus_area(self, confusion_result: str) -> str:
+        """从困惑分析结果摘要里提取建议追问方向"""
+        match = re.search(r'追问方向:\s*(.+)', confusion_result)
+        return match.group(1).strip() if match else ""
 
     def _detect_understanding(self, message: str) -> bool:
         """检测用户是否已经理解了问题"""

@@ -2,7 +2,6 @@
 out/
 node_modules/
 .vscode-test/
-*.vsix
 
 # Python
 __pycache__/
@@ -16,7 +15,6 @@ venv/
 
 # Build artifacts
 dist/
-build/
 *.log
 
 # IDE
@@ -28,13 +26,6 @@ build/
 .DS_Store
 Thumbs.db
 
-# DOSBox specific
-autom4te.cache/
-config.status
-config.log
-.deps/
-*.Po
-
 # Database
 *.db
 *.sqlite
@@ -44,7 +35,6 @@ config.log
 CLAUDE.md
 .vscode-test.mjs
 backend-bin/
-DEPLOYMENT_SUMMARY.md
 
 # Build artifacts
 *.vsix
